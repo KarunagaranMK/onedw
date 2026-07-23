@@ -1,0 +1,1 @@
+import{am as e}from"./index-Ceg9Fnhp.js";const r=async t=>{const{data:a}=await e.post("/request/create",t);return a},c=async()=>{const{data:t}=await e.get("/request/my-requests");return t};export{r as c,c as g};
