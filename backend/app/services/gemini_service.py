@@ -27,7 +27,13 @@ def _get_model():
     try:
         import google.generativeai as genai  # type: ignore
         genai.configure(api_key=settings.gemini_api_key)
-        return genai.GenerativeModel("gemini-1.5-flash")
+        # Try models in order of preference
+        for model_name in ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-pro", "gemini-1.0-pro"]:
+            try:
+                return genai.GenerativeModel(model_name)
+            except Exception:
+                continue
+        return None
     except Exception as exc:
         logger.error(f"Failed to initialise Gemini model: {exc}")
         return None

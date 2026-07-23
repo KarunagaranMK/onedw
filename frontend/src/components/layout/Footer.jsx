@@ -27,11 +27,11 @@ const Footer = () => (
           <Typography variant="subtitle1" fontWeight={600} mb={1}>
             Company
           </Typography>
-          {['About', 'Contact', 'FAQ'].map((item) => (
+          {[['About', '/about'], ['Contact', '/contact'], ['FAQ', '/contact']].map(([item, path]) => (
             <Typography
               key={item}
               component={Link}
-              to={`/${item.toLowerCase()}`}
+              to={path}
               variant="body2"
               display="block"
               color="text.secondary"

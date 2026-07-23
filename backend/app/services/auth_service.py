@@ -30,7 +30,13 @@ async def register_user(db: AsyncIOMotorDatabase, payload: UserRegisterSchema) -
     result = await db.users.insert_one(user_doc)
     user_id = str(result.inserted_id)
 
-    token = create_access_token(data={"sub": user_id})
+    token = create_access_token(data={
+        "sub": user_id,
+        "name": payload.name,
+        "email": payload.email,
+        "phone": payload.phone,
+        "role": payload.role,
+    })
     return {
         "access_token": token,
         "token_type": "bearer",
@@ -54,7 +60,13 @@ async def login_user(db: AsyncIOMotorDatabase, payload: UserLoginSchema) -> dict
         )
 
     user_id = str(user["_id"])
-    token = create_access_token(data={"sub": user_id})
+    token = create_access_token(data={
+        "sub": user_id,
+        "name": user["name"],
+        "email": user["email"],
+        "phone": user.get("phone", ""),
+        "role": user["role"],
+    })
     return {
         "access_token": token,
         "token_type": "bearer",
@@ -62,7 +74,7 @@ async def login_user(db: AsyncIOMotorDatabase, payload: UserLoginSchema) -> dict
             "id": user_id,
             "name": user["name"],
             "email": user["email"],
-            "phone": user["phone"],
+            "phone": user.get("phone", ""),
             "role": user["role"],
         },
     }

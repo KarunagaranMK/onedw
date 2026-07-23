@@ -13,8 +13,7 @@ from app.models.worker_model import build_worker_profile_document
 
 
 def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """Calculate distance in km between two GPS coordinates using Haversine formula."""
-    R = 6371  # Earth radius in km
+    R = 6371
     dlat = math.radians(lat2 - lat1)
     dlon = math.radians(lon2 - lon1)
     a = math.sin(dlat / 2) ** 2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2
@@ -25,31 +24,20 @@ def _to_oid(worker_id: str) -> ObjectId:
     try:
         return ObjectId(worker_id)
     except InvalidId:
-        raise HTTPException(status_code=400, detail="Invalid worker ID format.")
+        raise HTTPException(status_code=400, detail="Invalid worker ID.")
 
 
-def _serialize_worker(user: dict, profile: dict) -> dict:
-    """Merge user document + worker profile into a single API response dict."""
-    return {
-        "id": str(user["_id"]),
-        "name": user.get("name", ""),
-        "email": user.get("email", ""),
-        "phone": user.get("phone", ""),
-        "skills": profile.get("skills", []),
-        "experience_years": profile.get("experience_years", 0),
-        "hourly_rate": profile.get("hourly_rate", 0.0),
-        "bio": profile.get("bio", ""),
-        "is_available": profile.get("is_available", True),
-        "average_rating": profile.get("average_rating", 0.0),
-        "total_jobs": profile.get("total_jobs", 0),
-        "latitude": profile.get("latitude"),
-        "longitude": profile.get("longitude"),
-        "created_at": user.get("created_at"),
-    }
+async def _get_user(db, user_id: str) -> dict:
+    try:
+        user = await db.users.find_one({"_id": ObjectId(user_id)})
+    except Exception:
+        user = None
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found.")
+    return user
 
 
-async def _ensure_worker_profile(db: AsyncIOMotorDatabase, user_id: str) -> dict:
-    """Get worker profile or auto-create it if missing."""
+async def _ensure_worker_profile(db, user_id: str) -> dict:
     profile = await db.workers.find_one({"user_id": user_id})
     if profile is None:
         doc = build_worker_profile_document(user_id)
@@ -59,66 +47,103 @@ async def _ensure_worker_profile(db: AsyncIOMotorDatabase, user_id: str) -> dict
     return profile
 
 
-async def get_worker_profile(db: AsyncIOMotorDatabase, user_id: str) -> dict:
-    """Fetch the current user's worker profile."""
-    user = await db.users.find_one({"_id": ObjectId(user_id)})
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found.")
+def _serialize_worker(user: dict, profile: dict) -> dict:
+    return {
+        "id": str(profile.get("_id", "")),
+        "user_id": str(user.get("_id", "")),
+        "name": user.get("name", ""),
+        "email": user.get("email", ""),
+        "phone": profile.get("phone") or user.get("phone", ""),
+        "service_type": profile.get("service_type", ""),
+        "skills": profile.get("skills", []),
+        "experience_years": profile.get("experience_years", 0),
+        "hourly_rate": profile.get("hourly_rate", 0.0),
+        "bio": profile.get("bio", ""),
+        "languages": profile.get("languages", []),
+        "availability": profile.get("availability", []),
+        "working_hours": profile.get("working_hours", {"start": "09:00", "end": "18:00"}),
+        "emergency_contact": profile.get("emergency_contact", ""),
+        "whatsapp_number": profile.get("whatsapp_number", ""),
+        "address": profile.get("address", ""),
+        "latitude": profile.get("latitude"),
+        "longitude": profile.get("longitude"),
+        "profile_photo": profile.get("profile_photo", ""),
+        "identity_proof_type": profile.get("identity_proof_type", ""),
+        "identity_proof_url": profile.get("identity_proof_url", ""),
+        "is_available": profile.get("is_available", True),
+        "average_rating": profile.get("average_rating", 0.0),
+        "total_jobs": profile.get("total_jobs", 0),
+        "status": profile.get("status", "offline"),
+        "verified": profile.get("verified", False),
+        "profile_complete": profile.get("profile_complete", False),
+        "created_at": profile.get("created_at"),
+        "updated_at": profile.get("updated_at"),
+    }
+
+
+async def get_worker_profile(db, user_id: str) -> dict:
+    user = await _get_user(db, user_id)
     profile = await _ensure_worker_profile(db, user_id)
     return _serialize_worker(user, profile)
 
 
-async def update_worker_profile(
-    db: AsyncIOMotorDatabase, user_id: str, payload: WorkerProfileUpdateSchema
-) -> dict:
-    """Update a worker's profile fields."""
-    user = await db.users.find_one({"_id": ObjectId(user_id)})
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found.")
-
+async def update_worker_profile(db, user_id: str, payload: WorkerProfileUpdateSchema) -> dict:
+    user = await _get_user(db, user_id)
     update_data = {k: v for k, v in payload.model_dump().items() if v is not None}
-    if update_data:
-        update_data["updated_at"] = datetime.now(timezone.utc)
-        await db.workers.update_one(
-            {"user_id": user_id},
-            {"$set": update_data},
-            upsert=True,
-        )
-
+    
+    # If service_type is being set, also update skills
+    if "service_type" in update_data and update_data["service_type"]:
+        service = update_data["service_type"]
+        if "skills" not in update_data or not update_data.get("skills"):
+            update_data["skills"] = [service]
+    
+    # Determine if profile is complete
     profile = await db.workers.find_one({"user_id": user_id})
+    merged = {**(profile or {}), **update_data}
+    profile_complete = bool(
+        merged.get("service_type") and
+        merged.get("experience_years", 0) > 0 and
+        merged.get("hourly_rate", 0) > 0
+    )
+    update_data["profile_complete"] = profile_complete
+    update_data["updated_at"] = datetime.now(timezone.utc)
+    
+    await db.workers.update_one(
+        {"user_id": user_id},
+        {"$set": update_data},
+        upsert=True,
+    )
+    profile = await db.workers.find_one({"user_id": user_id})
+    if not profile:
+        profile = build_worker_profile_document(user_id)
+        profile.update(update_data)
     return _serialize_worker(user, profile)
 
 
-async def update_worker_location(
-    db: AsyncIOMotorDatabase, user_id: str, payload: WorkerLocationSchema
-) -> dict:
-    """Update a worker's GPS location."""
+async def update_worker_location(db, user_id: str, payload: WorkerLocationSchema) -> dict:
     await db.workers.update_one(
         {"user_id": user_id},
-        {
-            "$set": {
-                "latitude": payload.latitude,
-                "longitude": payload.longitude,
-                "updated_at": datetime.now(timezone.utc),
-            }
-        },
+        {"$set": {"latitude": payload.latitude, "longitude": payload.longitude, "updated_at": datetime.now(timezone.utc)}},
         upsert=True,
     )
     return {"message": "Location updated.", "latitude": payload.latitude, "longitude": payload.longitude}
 
 
-async def get_available_jobs(
-    db: AsyncIOMotorDatabase, user_id: str, service_type: str = None, radius_km: float = 50
-) -> list[dict]:
-    """
-    Fetch pending requests that are not yet assigned to a worker.
-    Optionally filter by service_type; returns all within radius_km of worker.
-    """
+async def update_worker_status(db, user_id: str, status_value: str) -> dict:
+    await db.workers.update_one(
+        {"user_id": user_id},
+        {"$set": {"status": status_value, "is_available": status_value == "online", "updated_at": datetime.now(timezone.utc)}},
+        upsert=True,
+    )
+    return {"status": status_value}
+
+
+async def get_available_jobs(db, user_id: str, service_type: str = None, radius_km: float = 50) -> list:
     profile = await db.workers.find_one({"user_id": user_id})
     worker_lat = profile.get("latitude") if profile else None
     worker_lon = profile.get("longitude") if profile else None
 
-    query: dict = {"status": "pending", "worker_id": {"$exists": False}}
+    query = {"status": "pending"}
     if service_type:
         query["service_type"] = {"$regex": service_type, "$options": "i"}
 
@@ -127,56 +152,41 @@ async def get_available_jobs(
 
     result = []
     for req in requests:
-        req["id"] = str(req["_id"])
-        del req["_id"]
+        # Safe _id handling
+        raw_id = req.get("_id")
+        req["id"] = str(raw_id) if raw_id else str(ObjectId())
+        req.pop("_id", None)
 
-        # Calculate distance if worker has a location
         if worker_lat and worker_lon and req.get("latitude") and req.get("longitude"):
-            req["distance_km"] = round(
-                _haversine_km(worker_lat, worker_lon, req["latitude"], req["longitude"]), 2
-            )
+            req["distance_km"] = round(_haversine_km(worker_lat, worker_lon, req["latitude"], req["longitude"]), 2)
         else:
             req["distance_km"] = None
-
         result.append(req)
 
-    # Sort by distance if available
     result.sort(key=lambda r: r.get("distance_km") or float("inf"))
     return result
 
 
-async def get_nearby_workers(
-    db: AsyncIOMotorDatabase,
-    service_type: str,
-    customer_lat: float,
-    customer_lon: float,
-    radius_km: float = 200,
-) -> list[dict]:
-    """
-    Find available workers with skills matching the service type.
-    Returns workers with computed distance_km, sorted by distance.
-    Falls back to returning all available workers if no skill match found.
-    """
+async def get_nearby_workers(db, service_type: str, customer_lat: float, customer_lon: float, radius_km: float = 200) -> list:
     all_workers = await db.workers.find({"is_available": True}).to_list(length=None)
     service_lower = service_type.lower().strip()
 
-    def _skill_matches(skills: list) -> bool:
-        """Broad skill match — checks substrings in both directions."""
+    def _skill_matches(skills):
         for skill in skills:
             s = skill.lower()
             if service_lower in s or s in service_lower:
                 return True
-        # Also match first word of service (e.g., "AC" in "AC Repair")
         first_word = service_lower.split()[0]
         return any(first_word in skill.lower() for skill in skills)
 
-    def _build_result(profile: dict, user: dict, dist: float) -> dict:
+    def _build_result(profile, user, dist):
         return {
             "worker_id": str(user["_id"]),
             "id": str(user["_id"]),
             "name": user.get("name", ""),
-            "phone": user.get("phone", ""),
+            "phone": profile.get("phone") or user.get("phone", ""),
             "skills": profile.get("skills", []),
+            "service_type": profile.get("service_type", ""),
             "experience_years": profile.get("experience_years", 0),
             "hourly_rate": profile.get("hourly_rate", 0.0),
             "bio": profile.get("bio", ""),
@@ -186,15 +196,16 @@ async def get_nearby_workers(
             "longitude": profile.get("longitude"),
             "distance_km": round(dist, 2),
             "is_available": profile.get("is_available", True),
+            "profile_photo": profile.get("profile_photo", ""),
         }
 
     skill_matched = []
     all_available = []
 
     for profile in all_workers:
-        user_id = profile.get("user_id")
+        user_id_str = profile.get("user_id")
         try:
-            user = await db.users.find_one({"_id": ObjectId(user_id)})
+            user = await db.users.find_one({"_id": ObjectId(user_id_str)})
         except Exception:
             user = None
         if not user:
@@ -202,26 +213,15 @@ async def get_nearby_workers(
 
         worker_lat = profile.get("latitude")
         worker_lon = profile.get("longitude")
-
-        if worker_lat and worker_lon:
-            dist = _haversine_km(customer_lat, customer_lon, worker_lat, worker_lon)
-        else:
-            dist = 0  # No location — treat as local/nearby
-
+        dist = _haversine_km(customer_lat, customer_lon, worker_lat, worker_lon) if (worker_lat and worker_lon) else 0
         entry = _build_result(profile, user, dist)
 
-        # Collect all available workers (for fallback)
         if dist <= radius_km or not (worker_lat and worker_lon):
             all_available.append(entry)
-
-        # Collect only skill-matched workers
-        if _skill_matches(profile.get("skills", [])):
+        if _skill_matches(profile.get("skills", []) or ([profile.get("service_type", "")] if profile.get("service_type") else [])):
             if dist <= radius_km or not (worker_lat and worker_lon):
                 skill_matched.append(entry)
 
-    # Use skill-matched if any found, else fall back to all available
     result = skill_matched if skill_matched else all_available
-
     result.sort(key=lambda w: w["distance_km"])
     return result
-

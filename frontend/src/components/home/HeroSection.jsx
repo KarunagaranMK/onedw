@@ -27,7 +27,7 @@ const HeroSection = () => (
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
             <Button
               component={Link}
-              to="/book-service"
+              to="/create-request"
               variant="contained"
               size="large"
               sx={{ backgroundColor: '#fff', color: 'primary.main', '&:hover': { backgroundColor: '#F1F5F9' } }}
@@ -36,7 +36,7 @@ const HeroSection = () => (
             </Button>
             <Button
               component={Link}
-              to="/register?role=worker"
+              to="/register"
               variant="outlined"
               size="large"
               sx={{ borderColor: '#fff', color: '#fff' }}
