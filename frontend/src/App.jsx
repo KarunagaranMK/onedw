@@ -20,6 +20,8 @@ const ServicesPage = lazy(() => import('./pages/ServicesPage'))
 const AboutPage = lazy(() => import('./pages/AboutPage'))
 const ContactPage = lazy(() => import('./pages/ContactPage'))
 const WorkerProfileSetup = lazy(() => import('./pages/WorkerProfileSetup'))
+const WorkersList = lazy(() => import('./pages/WorkersList'))
+const PaymentPage = lazy(() => import('./pages/PaymentPage'))
 
 function App() {
   return (
@@ -33,6 +35,9 @@ function App() {
           <Route path="/services" element={<ServicesPage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/contact" element={<ContactPage />} />
+          {/* Workers Discovery — public so anyone can browse */}
+          <Route path="/workers" element={<WorkersList />} />
+          <Route path="/workers-list" element={<WorkersList />} />
 
           {/* Smart role router — redirects to correct dashboard based on user.role */}
           <Route
@@ -82,6 +87,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <BookingPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/payment/:bookingId"
+            element={
+              <ProtectedRoute>
+                <PaymentPage />
               </ProtectedRoute>
             }
           />

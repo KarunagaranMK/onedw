@@ -16,43 +16,39 @@ const DashboardPage = () => {
 
   useEffect(() => {
     if (loading || !user) return
+    // Use a guard flag to run only once per mount/user-change
+    let cancelled = false
 
     const route = async () => {
-      if (user.role === 'admin') {
-        navigate('/admin', { replace: true })
-        return
-      }
+      if (cancelled) return
 
-      if (user.role === 'customer') {
-        navigate('/customer-dashboard', { replace: true })
-        return
-      }
+      if (user.role === 'admin') { navigate('/admin', { replace: true }); return }
+      if (user.role === 'customer') { navigate('/customer-dashboard', { replace: true }); return }
 
-      // Worker — check if profile is complete
       if (user.role === 'worker') {
         setChecking(true)
         try {
           const { data } = await api.get('/worker/profile')
-          if (data.profile_complete) {
-            navigate('/worker-dashboard', { replace: true })
-          } else {
-            navigate('/worker/profile/setup', { replace: true })
+          if (!cancelled) {
+            if (data.profile_complete) navigate('/worker-dashboard', { replace: true })
+            else navigate('/worker/profile/setup', { replace: true })
           }
         } catch {
-          // Can't check profile — send to setup
-          navigate('/worker/profile/setup', { replace: true })
+          if (!cancelled) navigate('/worker/profile/setup', { replace: true })
         } finally {
-          setChecking(false)
+          if (!cancelled) setChecking(false)
         }
         return
       }
 
-      // Unknown role fallback
       navigate('/customer-dashboard', { replace: true })
     }
 
     route()
-  }, [user, loading, navigate])
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.role, user?._id, loading])
+
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', minHeight: '60vh', gap: 2 }}>

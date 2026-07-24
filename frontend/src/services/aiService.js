@@ -1,11 +1,11 @@
 import api from './api'
 
 /**
- * AI / NLP service functions — Phase 3 voice parsing, Phase 6 recommendations.
+ * AI / NLP service functions — voice parsing, recommendations, platform stats.
  */
 
 /**
- * Parse a raw voice transcript through Gemini NLP.
+ * Parse a raw voice transcript through Gemini NLP (or local fallback).
  * @param {string} text - Raw spoken text
  * @returns {Promise<{service, location, date, time, raw_text}>}
  */
@@ -16,10 +16,6 @@ export const processNLPText = async (text) => {
 
 /**
  * Ask Gemini AI to recommend the best worker.
- * @param {string} serviceType
- * @param {number} lat - Customer latitude
- * @param {number} lon - Customer longitude
- * @param {Array} candidates - Array of nearby worker objects
  */
 export const getAIRecommendation = async (serviceType, lat, lon, candidates) => {
   const payload = {
@@ -42,9 +38,19 @@ export const getAIRecommendation = async (serviceType, lat, lon, candidates) => 
 }
 
 /**
- * Get platform-wide stats for admin dashboard.
+ * Get public platform stats — no auth required.
+ * Used on homepage StatisticsSection.
  */
 export const getPlatformStats = async () => {
+  const { data } = await api.get('/request/platform-stats')
+  return data
+}
+
+/**
+ * Get admin platform stats — requires JWT (admin role).
+ * Used in AdminDashboard.
+ */
+export const getAdminStats = async () => {
   const { data } = await api.get('/request/admin/stats')
   return data
 }

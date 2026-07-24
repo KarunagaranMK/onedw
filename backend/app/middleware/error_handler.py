@@ -17,18 +17,31 @@ async def http_exception_handler(request: Request, exc: Exception):
 
     return JSONResponse(
         status_code=exc.status_code,
-        content={"success": False, "message": exc.detail, "path": str(request.url)},
+        content={"success": False, "message": exc.detail, "detail": exc.detail, "path": str(request.url)},
     )
 
 
 async def validation_exception_handler(request: Request, exc: Exception):
-    """Handle Pydantic validation errors with field-level detail."""
+    """Handle Pydantic validation errors with clear field-level details."""
     if not isinstance(exc, RequestValidationError):
         return await unhandled_exception_handler(request, exc)
 
+    error_messages = []
+    for err in exc.errors():
+        field = " -> ".join(str(loc) for loc in err.get("loc", []) if loc != "body")
+        msg = err.get("msg", "Invalid value")
+        error_messages.append(f"{field}: {msg}" if field else msg)
+
+    readable_detail = "; ".join(error_messages) or "Validation error"
+
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        content={"success": False, "message": "Validation error", "errors": exc.errors()},
+        content={
+            "success": False,
+            "message": readable_detail,
+            "detail": readable_detail,
+            "errors": exc.errors(),
+        },
     )
 
 
@@ -37,5 +50,5 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
     logger.exception("Unhandled exception on %s: %s", request.url, exc)
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={"success": False, "message": "Internal server error"},
+        content={"success": False, "message": "Internal server error", "detail": "Internal server error"},
     )

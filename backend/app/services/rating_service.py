@@ -19,8 +19,10 @@ def _to_oid(id_str: str) -> ObjectId:
 
 
 def _serialize_rating(doc: dict) -> dict:
-    doc["id"] = str(doc["_id"])
-    del doc["_id"]
+    doc = dict(doc)
+    if "_id" in doc:
+        doc["id"] = str(doc["_id"])
+        del doc["_id"]
     return doc
 
 
@@ -45,17 +47,20 @@ async def create_rating(
     if existing:
         raise HTTPException(status_code=409, detail="You have already rated this booking.")
 
+    stars_value = payload.rating or payload.stars or 5
+    comment_value = payload.review or payload.comment or ""
+
     doc = build_rating_document(
         booking_id=payload.booking_id,
         customer_id=customer_id,
         worker_id=payload.worker_id,
-        stars=payload.stars,
-        comment=payload.comment,
+        stars=stars_value,
+        comment=comment_value,
     )
     result = await db.ratings.insert_one(doc)
     doc["_id"] = result.inserted_id
 
-    # Recompute worker's average rating
+    # Recompute worker's average rating & update profile
     await _update_worker_average_rating(db, payload.worker_id)
 
     return _serialize_rating(doc)
@@ -66,10 +71,23 @@ async def _update_worker_average_rating(db: AsyncIOMotorDatabase, worker_id: str
     cursor = db.ratings.find({"worker_id": worker_id})
     all_ratings = await cursor.to_list(length=None)
     if all_ratings:
-        avg = sum(r["stars"] for r in all_ratings) / len(all_ratings)
+        avg = sum(r.get("stars", r.get("rating", 5)) for r in all_ratings) / len(all_ratings)
+        avg_rounded = round(avg, 2)
+        
+        # Match worker profile by user_id OR _id
+        query = {"$or": [{"user_id": worker_id}]}
+        try:
+            query["$or"].append({"_id": ObjectId(worker_id)})
+        except Exception:
+            pass
+
         await db.workers.update_one(
-            {"user_id": worker_id},
-            {"$set": {"average_rating": round(avg, 2), "updated_at": datetime.now(timezone.utc)}},
+            query,
+            {"$set": {
+                "average_rating": avg_rounded,
+                "rating": avg_rounded,
+                "updated_at": datetime.now(timezone.utc)
+            }},
         )
 
 

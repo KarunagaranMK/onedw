@@ -4,9 +4,11 @@ Keeps routers thin — routers only handle HTTP concerns.
 """
 from fastapi import HTTPException, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
+from datetime import datetime, timezone
 
 from app.schemas.user_schema import UserRegisterSchema, UserLoginSchema
 from app.models.user_model import build_user_document
+from app.models.worker_model import build_worker_profile_document
 from app.utils.security import hash_password, verify_password, create_access_token
 
 
@@ -29,6 +31,16 @@ async def register_user(db: AsyncIOMotorDatabase, payload: UserRegisterSchema) -
     )
     result = await db.users.insert_one(user_doc)
     user_id = str(result.inserted_id)
+
+    # If registering as worker, auto-create initial worker profile in db.workers
+    if payload.role == "worker":
+        existing_worker = await db.workers.find_one({"user_id": user_id})
+        if not existing_worker:
+            worker_doc = build_worker_profile_document(user_id)
+            worker_doc["name"] = payload.name
+            worker_doc["email"] = payload.email
+            worker_doc["phone"] = payload.phone
+            await db.workers.insert_one(worker_doc)
 
     token = create_access_token(data={
         "sub": user_id,

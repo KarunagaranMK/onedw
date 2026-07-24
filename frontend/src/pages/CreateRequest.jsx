@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
 import {
   Container, Paper, Typography, TextField, MenuItem, Button, Box,
-  Snackbar, Alert, Divider, Chip, CircularProgress,
+  Snackbar, Alert, Divider, Chip, CircularProgress, useTheme,
 } from '@mui/material'
 import { motion } from 'framer-motion'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { MdMyLocation } from 'react-icons/md'
+import { MdMyLocation, MdArrowForward } from 'react-icons/md'
 import { createRequest } from '../services/requestService'
 import { SERVICE_CATEGORIES } from '../utils/constants'
 import VoiceInput from '../components/common/VoiceInput'
@@ -141,36 +141,45 @@ const CreateRequest = () => {
   }
 
   const today = new Date().toISOString().split('T')[0]
+  const theme = useTheme()
+  const isDark = theme.palette.mode === 'dark'
 
   return (
-    <Container maxWidth="md" sx={{ py: 5 }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
+      {/* Dark hero header */}
+      <Box sx={{
+        background: isDark ? 'linear-gradient(135deg,#080812,#1a1740)' : 'linear-gradient(135deg,#0f0c29,#302b63)',
+        pt: { xs: 4, md: 6 }, pb: { xs: 7, md: 9 },
+      }}>
+        <Container maxWidth="md">
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+            <Typography variant="h4" fontWeight={900} sx={{ color: '#fff', letterSpacing: '-0.02em', mb: 0.75 }}>
+              🛠️ Request a Service
+            </Typography>
+            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.55)' }}>
+              Describe your need — our AI will match you with the best verified professional nearby.
+            </Typography>
+          </motion.div>
+        </Container>
+      </Box>
+
+      <Container maxWidth="md" sx={{ mt: '-40px', pb: 6, position: 'relative', zIndex: 2 }}>
       <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
         <Paper
           sx={{
-            p: { xs: 3, sm: 5 },
+            p: { xs: 3, sm: 4 },
             borderRadius: 4,
-            border: '1px solid rgba(99,102,241,0.15)',
-            boxShadow: '0 20px 60px rgba(0,0,0,0.08)',
+            border: '1px solid rgba(108,71,255,0.15)',
+            boxShadow: isDark ? '0 20px 60px rgba(0,0,0,0.4)' : '0 20px 60px rgba(108,71,255,0.08)',
           }}
         >
-          <Typography variant="h4" fontWeight={800} mb={0.5}>
-            Request a Service
-          </Typography>
-          <Typography variant="body2" color="text.secondary" mb={1}>
-            Tell us what you need — we'll match you with the best verified professional nearby.
-          </Typography>
 
-          {/* Phase 3: Voice Input */}
+          {/* Voice Input */}
           <Box
             sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 2,
-              p: 2,
-              mb: 3,
-              background: 'linear-gradient(135deg, rgba(99,102,241,0.06), rgba(139,92,246,0.06))',
-              borderRadius: 3,
-              border: '1px dashed rgba(99,102,241,0.3)',
+              display: 'flex', alignItems: 'center', gap: 2, p: 2, mb: 3,
+              background: 'linear-gradient(135deg,rgba(108,71,255,0.06),rgba(0,212,170,0.04))',
+              borderRadius: 3, border: '1px dashed rgba(108,71,255,0.25)',
             }}
           >
             <VoiceInput
@@ -291,16 +300,11 @@ const CreateRequest = () => {
               size="large"
               disabled={loading}
               sx={{
-                borderRadius: 2,
-                py: 1.5,
-                fontWeight: 800,
-                fontSize: '1rem',
-                background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                boxShadow: '0 8px 32px rgba(99,102,241,0.35)',
-                '&:hover': {
-                  background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
-                  transform: 'translateY(-1px)',
-                },
+                borderRadius: 2.5, py: 1.5,
+                fontWeight: 800, fontSize: '1rem',
+                background: 'linear-gradient(135deg,#6C47FF,#9B72FF)',
+                boxShadow: '0 8px 32px rgba(108,71,255,0.35)',
+                '&:hover': { background: 'linear-gradient(135deg,#5a38e8,#8660e8)', transform: 'translateY(-1px)' },
               }}
             >
               {loading ? <CircularProgress size={24} color="inherit" /> : '🚀 Submit & Find Workers'}
@@ -315,11 +319,12 @@ const CreateRequest = () => {
         onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
-        <Alert severity={snackbar.severity} sx={{ width: '100%' }}>
+        <Alert severity={snackbar.severity} sx={{ width: '100%', borderRadius: 2 }}>
           {snackbar.message}
         </Alert>
       </Snackbar>
     </Container>
+    </Box>
   )
 }
 

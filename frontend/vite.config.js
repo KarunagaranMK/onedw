@@ -7,23 +7,23 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
+      includeAssets: ['logo.png'],
       manifest: {
-        name: 'OneDW - Home Services',
+        name: 'OneDW - One-Day Service Platform',
         short_name: 'OneDW',
-        description: 'Hyperlocal AI-powered home services platform',
-        theme_color: '#2563EB',
+        description: 'AI-powered Hyperlocal Home Services Platform — Book verified professionals in your city',
+        theme_color: '#6C47FF',
         background_color: '#F8FAFC',
         display: 'standalone',
         start_url: '/',
         icons: [
           {
-            src: '/icons/icon-192.png',
+            src: '/logo.png',
             sizes: '192x192',
             type: 'image/png',
           },
           {
-            src: '/icons/icon-512.png',
+            src: '/logo.png',
             sizes: '512x512',
             type: 'image/png',
           },
@@ -36,7 +36,7 @@ export default defineConfig({
     open: true,
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:8080',
+        target: 'http://127.0.0.1:8000',
         changeOrigin: true,
         secure: false,
       },

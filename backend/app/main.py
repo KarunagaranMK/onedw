@@ -10,7 +10,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
-from app.routers import auth_router, request_router, worker_router, booking_router, ai_router, rating_router
+from app.routers import auth_router, request_router, worker_router, booking_router, ai_router, rating_router, worker_search_router
+from app.routers.otp_notif_payment_router import otp_router, notif_router, payment_router
+
 
 from app.config import settings
 from app.database.connection import (
@@ -94,6 +96,11 @@ app.include_router(worker_router.router)
 app.include_router(booking_router.router)
 app.include_router(ai_router.router)
 app.include_router(rating_router.router)
+app.include_router(worker_search_router.router)
+app.include_router(otp_router)
+app.include_router(notif_router)
+app.include_router(payment_router)
+
 
 # -------------------------
 # Root

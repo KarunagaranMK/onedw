@@ -6,6 +6,7 @@ const STEPS = [
   { key: 'pending', label: 'Pending', icon: MdPending, color: '#f59e0b' },
   { key: 'accepted', label: 'Accepted', icon: MdCheckCircle, color: '#6366f1' },
   { key: 'worker_on_the_way', label: 'On The Way', icon: MdDirectionsWalk, color: '#0ea5e9' },
+  { key: 'arrived', label: 'Arrived', icon: MdBuild, color: '#8b5cf6' },
   { key: 'started', label: 'In Progress', icon: MdBuild, color: '#8b5cf6' },
   { key: 'completed', label: 'Completed', icon: MdDoneAll, color: '#10b981' },
 ]
@@ -14,6 +15,7 @@ const STATUS_LABELS = {
   pending: 'Awaiting acceptance from a worker',
   accepted: 'Worker has accepted your request',
   worker_on_the_way: 'Worker is on the way to your location',
+  arrived: 'Worker has arrived — share your OTP to start',
   started: 'Service is in progress',
   completed: 'Service completed successfully! 🎉',
   cancelled: 'Booking was cancelled',

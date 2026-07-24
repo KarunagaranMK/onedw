@@ -1,6 +1,7 @@
 """
-Service request endpoints — create, list, retrieve, update, and delete
-customer requests. All endpoints require a valid JWT.
+Service request endpoints — create, list, retrieve, update, and delete.
+IMPORTANT: All named/static routes must appear BEFORE the /{request_id}
+catch-all route to avoid routing conflicts (FastAPI matches top-to-bottom).
 """
 from fastapi import APIRouter, Depends, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
@@ -16,6 +17,59 @@ from app.utils.dependencies import get_current_user
 
 router = APIRouter(prefix="/api/request", tags=["Service Requests"])
 
+
+# ── Public stats — no auth, must be before /{request_id} ─────────────────────
+
+@router.get("/platform-stats", tags=["Public"])
+async def get_public_platform_stats(db: AsyncIOMotorDatabase = Depends(get_database)):
+    """Public platform stats — no auth required. Used on the homepage."""
+    total_workers = await db.users.count_documents({"role": "worker"})
+    total_customers = await db.users.count_documents({"role": "customer"})
+    total_bookings = await db.bookings.count_documents({})
+    completed_bookings = await db.bookings.count_documents({"status": "completed"})
+    total_worker_profiles = await db.workers.count_documents({})
+    total_requests = await db.requests.count_documents({})
+
+    return {
+        "total_workers": total_workers,
+        "total_customers": total_customers,
+        "total_bookings": total_bookings,
+        "completed_jobs": completed_bookings,
+        "total_requests": total_requests,
+        "total_worker_profiles": total_worker_profiles,
+    }
+
+
+# ── Admin stats — JWT required, before /{request_id} ─────────────────────────
+
+@router.get("/admin/stats", tags=["Admin"])
+async def get_platform_stats(
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    """Return high-level platform statistics (admin use)."""
+    total_users = await db.users.count_documents({})
+    total_workers = await db.users.count_documents({"role": "worker"})
+    total_customers = await db.users.count_documents({"role": "customer"})
+    total_requests = await db.requests.count_documents({})
+    total_bookings = await db.bookings.count_documents({})
+    completed_bookings = await db.bookings.count_documents({"status": "completed"})
+    pending_requests = await db.requests.count_documents({"status": "pending"})
+    total_workers_online = await db.workers.count_documents({"status": "online"})
+
+    return {
+        "total_users": total_users,
+        "total_workers": total_workers,
+        "total_customers": total_customers,
+        "total_requests": total_requests,
+        "total_bookings": total_bookings,
+        "completed_bookings": completed_bookings,
+        "pending_requests": pending_requests,
+        "workers_online": total_workers_online,
+    }
+
+
+# ── Authenticated named routes ────────────────────────────────────────────────
 
 @router.post("/create", response_model=RequestResponseSchema, status_code=status.HTTP_201_CREATED)
 async def create_service_request(
@@ -35,6 +89,8 @@ async def get_my_requests(
     """List all service requests raised by the logged-in customer."""
     return await request_service.get_customer_requests(db, current_user["_id"])
 
+
+# ── Catch-all /{request_id} — MUST be LAST ───────────────────────────────────
 
 @router.get("/{request_id}", response_model=RequestResponseSchema)
 async def get_single_request(
@@ -65,28 +121,3 @@ async def delete_service_request(
 ):
     """Delete a service request."""
     await request_service.delete_request(db, request_id, current_user["_id"])
-
-
-@router.get("/admin/stats", tags=["Admin"])
-async def get_platform_stats(
-    current_user: dict = Depends(get_current_user),
-    db: AsyncIOMotorDatabase = Depends(get_database),
-):
-    """Return high-level platform statistics (admin use)."""
-    total_users = await db.users.count_documents({})
-    total_workers = await db.users.count_documents({"role": "worker"})
-    total_customers = await db.users.count_documents({"role": "customer"})
-    total_requests = await db.requests.count_documents({})
-    total_bookings = await db.bookings.count_documents({})
-    completed_bookings = await db.bookings.count_documents({"status": "completed"})
-    pending_requests = await db.requests.count_documents({"status": "pending"})
-
-    return {
-        "total_users": total_users,
-        "total_workers": total_workers,
-        "total_customers": total_customers,
-        "total_requests": total_requests,
-        "total_bookings": total_bookings,
-        "completed_bookings": completed_bookings,
-        "pending_requests": pending_requests,
-    }

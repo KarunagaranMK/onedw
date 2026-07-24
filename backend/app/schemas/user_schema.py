@@ -9,7 +9,7 @@ from typing import Literal
 class UserRegisterSchema(BaseModel):
     name: str = Field(..., min_length=2, max_length=100)
     email: EmailStr
-    phone: str = Field(..., min_length=10, max_length=15)
+    phone: str = Field(..., min_length=7, max_length=15, description="Phone number 7 to 15 digits")
     password: str = Field(..., min_length=6)
     role: Literal["customer", "worker"] = "customer"
 

@@ -14,10 +14,21 @@ from app.models.booking_model import build_booking_document
 VALID_TRANSITIONS = {
     "pending": ["accepted", "cancelled"],
     "accepted": ["worker_on_the_way", "cancelled"],
-    "worker_on_the_way": ["started", "cancelled"],
+    "worker_on_the_way": ["arrived", "cancelled"],
+    "arrived": ["started", "cancelled"],    # OTP triggers this via otp_service
     "started": ["completed"],
     "completed": [],
     "cancelled": [],
+}
+
+# Human-readable notifications per transition
+_TRANSITION_NOTIFS = {
+    "accepted":           ("worker", "🎉 Job Accepted!", "You accepted a new service request."),
+    "worker_on_the_way":  ("customer", "🚗 Worker On The Way!", "Your worker is heading to your location."),
+    "arrived":            ("customer", "📍 Worker Arrived!", "Your worker has arrived. Share your OTP to begin."),
+    "started":            ("customer", "🔧 Job Started!", "The service has started."),
+    "completed":          ("customer", "✅ Job Completed!", "Your service is complete. Please rate your experience."),
+    "cancelled":          ("both", "❌ Booking Cancelled", "The booking has been cancelled."),
 }
 
 
@@ -29,13 +40,18 @@ def _to_oid(id_str: str) -> ObjectId:
 
 
 def _serialize_booking(doc: dict, worker_info: dict = None) -> dict:
-    doc["id"] = str(doc["_id"])
-    del doc["_id"]
+    doc = dict(doc)
+    if "_id" in doc:
+        doc["id"] = str(doc["_id"])
+        del doc["_id"]
+    elif "id" not in doc:
+        doc["id"] = ""
     if worker_info:
         doc["worker_name"] = worker_info.get("name")
         doc["worker_phone"] = worker_info.get("phone")
         doc["worker_rating"] = worker_info.get("average_rating")
     return doc
+
 
 
 async def create_booking(
@@ -92,15 +108,21 @@ async def get_customer_bookings(db: AsyncIOMotorDatabase, customer_id: str) -> l
     bookings = await cursor.to_list(length=None)
     result = []
     for b in bookings:
-        worker_user = await db.users.find_one({"_id": _to_oid(b["worker_id"])})
-        worker_profile = await db.workers.find_one({"user_id": b["worker_id"]})
+        worker_id_str = b.get("worker_id", "")
+        worker_user = None
+        try:
+            worker_user = await db.users.find_one({"_id": ObjectId(worker_id_str)})
+        except Exception:
+            pass
+        worker_profile = await db.workers.find_one({"user_id": worker_id_str})
         worker_info = {
-            "name": (worker_user or {}).get("name"),
-            "phone": (worker_user or {}).get("phone"),
+            "name": (worker_user or {}).get("name", "Professional"),
+            "phone": (worker_user or {}).get("phone") or (worker_profile or {}).get("phone", ""),
             "average_rating": (worker_profile or {}).get("average_rating", 0.0),
         }
         result.append(_serialize_booking(b, worker_info))
     return result
+
 
 
 async def get_worker_bookings(db: AsyncIOMotorDatabase, worker_id: str) -> list[dict]:
@@ -173,4 +195,18 @@ async def update_booking_status(
         )
 
     updated = await db.bookings.find_one({"_id": _to_oid(booking_id)})
+
+    # Push notifications
+    try:
+        from app.services.notification_service import create_notification
+        notif_info = _TRANSITION_NOTIFS.get(new_status)
+        if notif_info:
+            target, title, body = notif_info
+            if target in ("customer", "both"):
+                await create_notification(db, booking["customer_id"], title, body, "info", booking_id)
+            if target in ("worker", "both"):
+                await create_notification(db, booking["worker_id"], title, body, "info", booking_id)
+    except Exception:
+        pass
+
     return _serialize_booking(updated)

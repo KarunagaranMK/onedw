@@ -23,27 +23,60 @@ logger = logging.getLogger("onedw.database")
 
 def _matches_query(document: dict, query: dict) -> bool:
     """Return True when a document matches the provided query.
-    Supports: simple equality, $exists, $regex (case-insensitive via $options).
+    Supports: equality, $exists, $regex, $or, $and, $gte, $lte, $gt, $lt, $ne, $in, $nin.
     """
     import re as _re
+
     for key, expected in query.items():
+        # Top-level logical operators
+        if key == "$or":
+            if not any(_matches_query(document, sub) for sub in expected):
+                return False
+            continue
+        if key == "$and":
+            if not all(_matches_query(document, sub) for sub in expected):
+                return False
+            continue
+
         doc_val = document.get(key)
         if isinstance(expected, dict):
-            # Handle operators
-            if "$exists" in expected:
-                has_key = key in document
-                if expected["$exists"] and not has_key:
-                    return False
-                if not expected["$exists"] and has_key:
-                    return False
-            if "$regex" in expected:
-                flags = _re.IGNORECASE if expected.get("$options", "") == "i" else 0
-                if not _re.search(expected["$regex"], str(doc_val or ""), flags):
-                    return False
+            for op, operand in expected.items():
+                if op == "$exists":
+                    has_key = key in document
+                    if operand and not has_key:
+                        return False
+                    if not operand and has_key:
+                        return False
+                elif op == "$regex":
+                    flags = _re.IGNORECASE if expected.get("$options", "") == "i" else 0
+                    if not _re.search(operand, str(doc_val or ""), flags):
+                        return False
+                elif op == "$gte":
+                    if doc_val is None or doc_val < operand:
+                        return False
+                elif op == "$lte":
+                    if doc_val is None or doc_val > operand:
+                        return False
+                elif op == "$gt":
+                    if doc_val is None or doc_val <= operand:
+                        return False
+                elif op == "$lt":
+                    if doc_val is None or doc_val >= operand:
+                        return False
+                elif op == "$ne":
+                    if doc_val == operand:
+                        return False
+                elif op == "$in":
+                    if doc_val not in operand:
+                        return False
+                elif op == "$nin":
+                    if doc_val in operand:
+                        return False
         else:
             if doc_val != expected:
                 return False
     return True
+
 
 
 
@@ -149,7 +182,20 @@ class InMemoryCollection:
                 return MemoryDeleteResult(deleted_count=1)
         return MemoryDeleteResult(deleted_count=0)
 
+    async def update_many(self, query: dict, update: dict) -> MemoryUpdateResult:
+        """Update all matching documents (used by mark_all_read etc.)."""
+        count = 0
+        for document in self._documents:
+            if not _matches_query(document, query):
+                continue
+            set_payload = update.get("$set", {})
+            for key, value in set_payload.items():
+                document[key] = value
+            count += 1
+        return MemoryUpdateResult(matched_count=count, modified_count=count)
+
     async def count_documents(self, query: dict) -> int:
+
         if not query:
             return len(self._documents)
         return sum(1 for doc in self._documents if _matches_query(doc, query))
@@ -165,7 +211,10 @@ class InMemoryDatabase:
         self.bookings = InMemoryCollection()
         self.ratings = InMemoryCollection()
         self.notifications = InMemoryCollection()
+        self.otp = InMemoryCollection()
+        self.payments = InMemoryCollection()
         self.test = InMemoryCollection()
+
 
 
 class MongoDB:
