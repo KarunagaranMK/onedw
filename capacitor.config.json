@@ -1,0 +1,14 @@
+{
+  "appId": "com.onedw.app",
+  "appName": "OneDW",
+  "webDir": "frontend/dist",
+  "server": {
+    "androidScheme": "https",
+    "allowNavigation": ["*"]
+  },
+  "android": {
+    "allowMixedContent": true,
+    "captureInput": true
+  },
+  "plugins": {}
+}

@@ -50,7 +50,25 @@ export default function RegisterPage() {
       })
       navigate('/dashboard')
     } catch (err) {
-      setError(err?.response?.data?.detail || err?.response?.data?.message || err?.message || 'Registration failed.')
+      const status = err?.response?.status
+      const detail = err?.response?.data?.detail || err?.response?.data?.message || ''
+      if (err?.code === 'ERR_NETWORK' || err?.code === 'ECONNREFUSED') {
+        setError('Cannot reach the server. Please make sure the backend is running.')
+      } else if (status === 409) {
+        setError('An account with this email already exists. Please log in instead.')
+      } else if (status === 422) {
+        // Pydantic validation error
+        const msgs = err?.response?.data?.detail
+        if (Array.isArray(msgs)) {
+          setError(msgs.map(m => m.msg).join(', '))
+        } else {
+          setError(detail || 'Please check your details and try again.')
+        }
+      } else if (status === 404) {
+        setError('Server API not found. Please restart the backend server.')
+      } else {
+        setError(detail || err?.message || 'Registration failed. Please try again.')
+      }
     } finally {
       setLoading(false)
     }

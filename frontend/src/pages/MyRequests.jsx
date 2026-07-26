@@ -18,7 +18,7 @@ const MyRequests = () => {
         const data = await getMyRequests()
         setRequests(data)
       } catch (err) {
-        setError(err.response?.data?.message || 'Failed to load your requests.')
+        setError(err.response?.data?.detail || err.response?.data?.message || 'Failed to load your requests. Please try again.')
       } finally {
         setLoading(false)
       }

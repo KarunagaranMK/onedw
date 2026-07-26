@@ -64,13 +64,3 @@ export const getPaymentForBooking = async (bookingId) => {
   const { data } = await api.get(`/payments/booking/${bookingId}`)
   return data
 }
-
-export const submitRating = async ({ bookingId, workerId, stars, comment }) => {
-  const { data } = await api.post('/rating/create', {
-    booking_id: bookingId,
-    worker_id: workerId,
-    stars,
-    comment,
-  })
-  return data
-}

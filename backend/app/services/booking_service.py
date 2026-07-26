@@ -1,6 +1,7 @@
 """
 Business logic for booking lifecycle management.
 Handles creation, retrieval, and status transitions.
+Extended with issue details support for Smart Issue Reporting.
 """
 from fastapi import HTTPException, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
@@ -15,20 +16,19 @@ VALID_TRANSITIONS = {
     "pending": ["accepted", "cancelled"],
     "accepted": ["worker_on_the_way", "cancelled"],
     "worker_on_the_way": ["arrived", "cancelled"],
-    "arrived": ["started", "cancelled"],    # OTP triggers this via otp_service
+    "arrived": ["started", "cancelled"],
     "started": ["completed"],
     "completed": [],
     "cancelled": [],
 }
 
-# Human-readable notifications per transition
 _TRANSITION_NOTIFS = {
-    "accepted":           ("worker", "🎉 Job Accepted!", "You accepted a new service request."),
-    "worker_on_the_way":  ("customer", "🚗 Worker On The Way!", "Your worker is heading to your location."),
-    "arrived":            ("customer", "📍 Worker Arrived!", "Your worker has arrived. Share your OTP to begin."),
-    "started":            ("customer", "🔧 Job Started!", "The service has started."),
-    "completed":          ("customer", "✅ Job Completed!", "Your service is complete. Please rate your experience."),
-    "cancelled":          ("both", "❌ Booking Cancelled", "The booking has been cancelled."),
+    "accepted":           ("worker", "Job Accepted!", "You accepted a new service request."),
+    "worker_on_the_way":  ("customer", "Worker On The Way!", "Your worker is heading to your location."),
+    "arrived":            ("customer", "Worker Arrived!", "Your worker has arrived. Share your OTP to begin."),
+    "started":            ("customer", "Job Started!", "The service has started."),
+    "completed":          ("customer", "Job Completed!", "Your service is complete. Please rate your experience."),
+    "cancelled":          ("both", "Booking Cancelled", "The booking has been cancelled."),
 }
 
 
@@ -53,12 +53,10 @@ def _serialize_booking(doc: dict, worker_info: dict = None) -> dict:
     return doc
 
 
-
 async def create_booking(
     db: AsyncIOMotorDatabase, payload: BookingCreateSchema, customer_id: str
 ) -> dict:
-    """Create a booking from an accepted service request."""
-    # Validate request exists and belongs to customer
+    """Create a booking from an accepted service request, with optional issue details."""
     request = await db.requests.find_one(
         {"_id": _to_oid(payload.request_id), "customer_id": customer_id}
     )
@@ -70,10 +68,13 @@ async def create_booking(
             status_code=400, detail="Request is already booked or completed."
         )
 
-    # Check worker exists
     worker_user = await db.users.find_one({"_id": _to_oid(payload.worker_id)})
     if not worker_user:
         raise HTTPException(status_code=404, detail="Worker not found.")
+
+    issue_details = None
+    if payload.issue_details:
+        issue_details = payload.issue_details.model_dump(mode="json")
 
     doc = build_booking_document(
         request_id=payload.request_id,
@@ -83,11 +84,11 @@ async def create_booking(
         location=request["location"],
         preferred_date=request["preferred_date"],
         preferred_time=request["preferred_time"],
+        issue_details=issue_details,
     )
     result = await db.bookings.insert_one(doc)
     doc["_id"] = result.inserted_id
 
-    # Mark request as accepted + attach worker
     await db.requests.update_one(
         {"_id": _to_oid(payload.request_id)},
         {"$set": {"status": "accepted", "worker_id": payload.worker_id}},
@@ -99,11 +100,22 @@ async def create_booking(
         "phone": worker_user.get("phone"),
         "average_rating": (worker_profile or {}).get("average_rating", 0.0),
     }
+
+    try:
+        from app.services.notification_service import create_notification
+        await create_notification(
+            db, payload.worker_id,
+            "New Booking Request! 📋",
+            f"New {request['service_type']} booking from {customer_id[:8]}...",
+            "info", str(result.inserted_id),
+        )
+    except Exception:
+        pass
+
     return _serialize_booking(doc, worker_info)
 
 
 async def get_customer_bookings(db: AsyncIOMotorDatabase, customer_id: str) -> list[dict]:
-    """Get all bookings for the current customer, with worker info."""
     cursor = db.bookings.find({"customer_id": customer_id}).sort("created_at", -1)
     bookings = await cursor.to_list(length=None)
     result = []
@@ -124,18 +136,18 @@ async def get_customer_bookings(db: AsyncIOMotorDatabase, customer_id: str) -> l
     return result
 
 
-
 async def get_worker_bookings(db: AsyncIOMotorDatabase, worker_id: str) -> list[dict]:
-    """Get all bookings assigned to the current worker."""
     cursor = db.bookings.find({"worker_id": worker_id}).sort("created_at", -1)
     bookings = await cursor.to_list(length=None)
-    return [_serialize_booking(b) for b in bookings]
+    result = []
+    for b in bookings:
+        result.append(_serialize_booking(b))
+    return result
 
 
 async def get_booking_by_id(
     db: AsyncIOMotorDatabase, booking_id: str, user_id: str
 ) -> dict:
-    """Fetch a single booking visible to customer or worker."""
     booking = await db.bookings.find_one({"_id": _to_oid(booking_id)})
     if not booking:
         raise HTTPException(status_code=404, detail="Booking not found.")
@@ -159,7 +171,6 @@ async def update_booking_status(
     payload: BookingStatusUpdateSchema,
     user_id: str,
 ) -> dict:
-    """Advance the booking status along valid transition paths."""
     booking = await db.bookings.find_one({"_id": _to_oid(booking_id)})
     if not booking:
         raise HTTPException(status_code=404, detail="Booking not found.")
@@ -176,18 +187,20 @@ async def update_booking_status(
             detail=f"Cannot transition from '{current}' to '{new_status}'. Allowed: {allowed}",
         )
 
+    update_fields = {"status": new_status, "updated_at": datetime.now(timezone.utc)}
+    if new_status == "completed":
+        update_fields["completed_at"] = datetime.now(timezone.utc)
+
     await db.bookings.update_one(
         {"_id": _to_oid(booking_id)},
-        {"$set": {"status": new_status, "updated_at": datetime.now(timezone.utc)}},
+        {"$set": update_fields},
     )
 
-    # Sync status to request
     await db.requests.update_one(
         {"_id": _to_oid(booking["request_id"])},
         {"$set": {"status": new_status}},
     )
 
-    # If completed, increment worker total_jobs
     if new_status == "completed":
         await db.workers.update_one(
             {"user_id": booking["worker_id"]},
@@ -196,7 +209,6 @@ async def update_booking_status(
 
     updated = await db.bookings.find_one({"_id": _to_oid(booking_id)})
 
-    # Push notifications
     try:
         from app.services.notification_service import create_notification
         notif_info = _TRANSITION_NOTIFS.get(new_status)

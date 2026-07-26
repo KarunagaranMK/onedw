@@ -18,6 +18,13 @@ from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 
 from app.config import settings
 
+# Use certifi CA bundle for robust TLS with MongoDB Atlas
+try:
+    import certifi
+    _CA_FILE = certifi.where()
+except ImportError:
+    _CA_FILE = None
+
 logger = logging.getLogger("onedw.database")
 
 
@@ -107,10 +114,20 @@ class InMemoryCursor:
         self._query = query
         self._sort_field = None
         self._sort_direction = -1
+        self._skip_n = 0
+        self._limit_n = None
 
     def sort(self, field: str, direction: int = -1):
         self._sort_field = field
         self._sort_direction = direction
+        return self
+
+    def skip(self, n: int):
+        self._skip_n = n
+        return self
+
+    def limit(self, n: int):
+        self._limit_n = n
         return self
 
     async def to_list(self, length: int | None = None) -> list[dict]:
@@ -122,6 +139,9 @@ class InMemoryCursor:
                 reverse=self._sort_direction == -1,
             )
 
+        matches = matches[self._skip_n:]
+        if self._limit_n is not None:
+            matches = matches[:self._limit_n]
         if length is not None:
             return matches[:length]
         return matches
@@ -163,6 +183,13 @@ class InMemoryCollection:
             for key, delta in inc_payload.items():
                 document[key] = document.get(key, 0) + delta
 
+            # Handle $push operator
+            push_payload = update.get("$push", {})
+            for key, value in push_payload.items():
+                if key not in document:
+                    document[key] = []
+                document[key].append(value)
+
             updated = True
             break
 
@@ -195,16 +222,104 @@ class InMemoryCollection:
         return MemoryUpdateResult(matched_count=count, modified_count=count)
 
     async def count_documents(self, query: dict) -> int:
-
         if not query:
             return len(self._documents)
         return sum(1 for doc in self._documents if _matches_query(doc, query))
+
+    def aggregate(self, pipeline: list) -> "InMemoryAggregateCursor":
+        """Very small subset of aggregation — enough for admin stats."""
+        return InMemoryAggregateCursor(self._documents, pipeline)
+
+
+class InMemoryAggregateCursor:
+    """Minimal aggregate cursor for $group/$match/$sort/$limit pipelines."""
+
+    def __init__(self, documents: list[dict], pipeline: list):
+        self._documents = list(documents)
+        self._pipeline = pipeline
+
+    async def to_list(self, length: int | None = None) -> list[dict]:
+        import re as _re
+        docs = list(self._documents)
+        results: list[dict] = []
+
+        for stage in self._pipeline:
+            if "$match" in stage:
+                docs = [d for d in docs if _matches_query(d, stage["$match"])]
+
+            elif "$group" in stage:
+                spec = stage["$group"]
+                id_field = spec.get("_id")
+                groups: dict = {}
+
+                for doc in docs:
+                    # Resolve group key
+                    if id_field is None:
+                        key = None
+                    elif isinstance(id_field, dict):
+                        key = tuple(
+                            (k, doc.get(list(v.values())[0].lstrip("$")))
+                            for k, v in id_field.items()
+                        )
+                    elif isinstance(id_field, str) and id_field.startswith("$"):
+                        key = doc.get(id_field[1:])
+                    else:
+                        key = id_field
+
+                    if key not in groups:
+                        groups[key] = {"_id": key}
+
+                    for out_field, agg_expr in spec.items():
+                        if out_field == "_id":
+                            continue
+                        if not isinstance(agg_expr, dict):
+                            continue
+                        op, val_expr = next(iter(agg_expr.items()))
+                        field_name = val_expr[1:] if isinstance(val_expr, str) and val_expr.startswith("$") else None
+                        field_val = doc.get(field_name, 0) if field_name else 0
+
+                        g = groups[key]
+                        if op == "$sum":
+                            operand = val_expr if not isinstance(val_expr, str) else field_val
+                            g[out_field] = g.get(out_field, 0) + (operand if isinstance(operand, (int, float)) else 0)
+                        elif op == "$avg":
+                            g.setdefault(f"_avg_sum_{out_field}", 0)
+                            g.setdefault(f"_avg_cnt_{out_field}", 0)
+                            g[f"_avg_sum_{out_field}"] += field_val or 0
+                            g[f"_avg_cnt_{out_field}"] += 1
+                            cnt = g[f"_avg_cnt_{out_field}"]
+                            g[out_field] = g[f"_avg_sum_{out_field}"] / cnt if cnt else 0
+
+                results = list(groups.values())
+                # Resolve tuple keys to dicts
+                for r in results:
+                    if isinstance(r["_id"], tuple):
+                        r["_id"] = dict(r["_id"])
+                docs = results
+
+            elif "$sort" in stage:
+                sort_spec = stage["$sort"]
+                for field, direction in reversed(list(sort_spec.items())):
+                    docs.sort(
+                        key=lambda d: (d.get(field) is None, d.get(field) or 0),
+                        reverse=(direction == -1),
+                    )
+                results = docs
+
+            elif "$limit" in stage:
+                docs = docs[:stage["$limit"]]
+                results = docs
+
+        if length is not None:
+            return results[:length]
+        return results
 
 
 class InMemoryDatabase:
     """Development database facade — used when MongoDB Atlas is unreachable."""
 
     def __init__(self):
+        # Existing collections
         self.users = InMemoryCollection()
         self.requests = InMemoryCollection()
         self.workers = InMemoryCollection()
@@ -214,6 +329,17 @@ class InMemoryDatabase:
         self.otp = InMemoryCollection()
         self.payments = InMemoryCollection()
         self.test = InMemoryCollection()
+        self.counter_offers = InMemoryCollection()
+        self.warranties = InMemoryCollection()
+        self.warranty_claims = InMemoryCollection()
+        # New collections added for reviews, complaints, admin
+        self.reviews = InMemoryCollection()
+        self.worker_reviews = InMemoryCollection()
+        self.complaints = InMemoryCollection()
+        self.complaint_messages = InMemoryCollection()
+        self.warnings = InMemoryCollection()
+        self.platform_settings = InMemoryCollection()
+        self.refunds = InMemoryCollection()
 
 
 
@@ -239,23 +365,43 @@ async def connect_to_mongo() -> None:
 
     last_error = None
     for mongo_url in candidate_urls:
-        try:
-            client = AsyncIOMotorClient(
-                mongo_url,
-                maxPoolSize=50,
-                minPoolSize=10,
-                serverSelectionTimeoutMS=8000,
-                connectTimeoutMS=8000,
-            )
-            await client.admin.command("ping")
-            mongodb.client = client
-            mongodb.db = client[settings.mongodb_db_name]
-            mongodb.using_in_memory = False
-            logger.info("MongoDB connection established using %s", mongo_url)
-            return
-        except Exception as exc:
-            last_error = exc
-            logger.warning("MongoDB connection failed for %s: %s", mongo_url, exc)
+        is_atlas = mongo_url.startswith("mongodb+srv://")
+
+        # Build progressively more permissive TLS param sets.
+        # tlsInsecure is tried early because many corporate/home networks
+        # intercept TLS and cause TLSV1_ALERT_INTERNAL_ERROR with stricter modes.
+        param_sets: list[dict] = [{}]
+        if is_atlas:
+            param_sets += [
+                {"tlsInsecure": True},
+                {"tlsAllowInvalidCertificates": True},
+            ]
+            if _CA_FILE:
+                param_sets += [
+                    {"tlsCAFile": _CA_FILE},
+                    {"tlsCAFile": _CA_FILE, "tlsAllowInvalidCertificates": True},
+                ]
+
+        for extra_kwargs in param_sets:
+            try:
+                client = AsyncIOMotorClient(
+                    mongo_url,
+                    maxPoolSize=50,
+                    minPoolSize=10,
+                    serverSelectionTimeoutMS=8000,
+                    connectTimeoutMS=8000,
+                    **extra_kwargs,
+                )
+                await client.admin.command("ping")
+                mongodb.client = client
+                mongodb.db = client[settings.mongodb_db_name]
+                mongodb.using_in_memory = False
+                tls_note = f" (params: {extra_kwargs})" if extra_kwargs else ""
+                logger.info("MongoDB connection established using %s%s", mongo_url, tls_note)
+                return
+            except Exception as exc:
+                last_error = exc
+                logger.warning("MongoDB attempt failed [%s, %s]: %s", mongo_url, extra_kwargs, str(exc)[:200])
 
     mongodb.client = None
     mongodb.db = InMemoryDatabase()

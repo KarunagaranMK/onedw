@@ -1,9 +1,17 @@
 """
 Pydantic schemas for ratings submitted by customers after service completion.
+Extended with category ratings and media uploads.
 """
 from pydantic import BaseModel, Field, model_validator
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
+
+
+class ReviewMediaSchema(BaseModel):
+    url: str = ""
+    media_type: str = "image"
+    filename: Optional[str] = None
+    size: Optional[int] = None
 
 
 class RatingCreateSchema(BaseModel):
@@ -12,7 +20,16 @@ class RatingCreateSchema(BaseModel):
     stars: int = Field(5, ge=1, le=5)
     comment: Optional[str] = Field(None, max_length=500)
     rating: Optional[int] = Field(None, ge=1, le=5)
-    review: Optional[str] = Field(None, max_length=500)
+    review: Optional[str] = Field(None, max_length=1000)
+    punctuality: Optional[int] = Field(None, ge=1, le=5)
+    behavior: Optional[int] = Field(None, ge=1, le=5)
+    work_quality: Optional[int] = Field(None, ge=1, le=5)
+    communication: Optional[int] = Field(None, ge=1, le=5)
+    value_for_money: Optional[int] = Field(None, ge=1, le=5)
+    cleanliness: Optional[int] = Field(None, ge=1, le=5)
+    recommend: bool = True
+    review_images: List[ReviewMediaSchema] = []
+    review_videos: List[ReviewMediaSchema] = []
 
     @model_validator(mode="before")
     @classmethod
@@ -32,4 +49,14 @@ class RatingResponseSchema(BaseModel):
     worker_id: str
     stars: int
     comment: Optional[str] = None
+    review: Optional[str] = None
+    punctuality: Optional[int] = None
+    behavior: Optional[int] = None
+    work_quality: Optional[int] = None
+    communication: Optional[int] = None
+    value_for_money: Optional[int] = None
+    cleanliness: Optional[int] = None
+    recommend: bool = True
+    review_images: List[dict] = []
+    review_videos: List[dict] = []
     created_at: datetime

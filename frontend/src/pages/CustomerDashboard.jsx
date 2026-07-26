@@ -7,12 +7,15 @@ import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import {
   MdAdd, MdArrowForward, MdSearch, MdLogout,
-  MdCheckCircle, MdHistory, MdPending, MdWork,
+  MdCheckCircle, MdHistory, MdPending, MdWork, MdVerifiedUser,
+  MdStar, MdReportProblem,
 } from 'react-icons/md'
 import { getMyRequests } from '../services/requestService'
 import { getMyBookings } from '../services/bookingService'
+import { getMyWarranties } from '../services/issueService'
 import { useAuth } from '../hooks/useAuth'
 import BookingStepper from '../components/common/BookingStepper'
+import WarrantyBadge from '../components/common/WarrantyBadge'
 
 const STATUS_CONFIG = {
   pending:          { color: '#FFB800', bg: 'rgba(255,184,0,0.1)',     label: '⏳ Pending' },
@@ -78,6 +81,7 @@ export default function CustomerDashboard() {
   const isDark = theme.palette.mode === 'dark'
   const [requests, setRequests] = useState([])
   const [bookings, setBookings] = useState([])
+  const [warranties, setWarranties] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -85,6 +89,7 @@ export default function CustomerDashboard() {
     const fetchAll = async () => {
       try { const r = await getMyRequests(); setRequests(Array.isArray(r) ? r : []) } catch { setError('Failed to load requests.') }
       try { const b = await getMyBookings(); setBookings(Array.isArray(b) ? b : []) } catch { setBookings([]) }
+      try { const w = await getMyWarranties(); setWarranties(Array.isArray(w) ? w : []) } catch { setWarranties([]) }
       setLoading(false)
     }
     fetchAll()
@@ -155,6 +160,22 @@ export default function CustomerDashboard() {
                   Find Workers
                 </Button>
                 <Button
+                  variant="outlined"
+                  startIcon={<MdStar />}
+                  onClick={() => navigate('/my-reviews')}
+                  sx={{ borderRadius: 2.5, fontWeight: 700, borderColor: 'rgba(255,255,255,0.3)', color: '#fff', '&:hover': { borderColor: '#fff', bgcolor: 'rgba(255,255,255,0.1)' } }}
+                >
+                  My Reviews
+                </Button>
+                <Button
+                  variant="outlined"
+                  startIcon={<MdReportProblem />}
+                  onClick={() => navigate('/my-complaints')}
+                  sx={{ borderRadius: 2.5, fontWeight: 700, borderColor: 'rgba(255,184,0,0.5)', color: '#FFB800', '&:hover': { borderColor: '#FFB800', bgcolor: 'rgba(255,184,0,0.08)' } }}
+                >
+                  Complaints
+                </Button>
+                <Button
                   variant="text"
                   startIcon={<MdLogout />}
                   onClick={() => { logout(); navigate('/') }}
@@ -179,6 +200,61 @@ export default function CustomerDashboard() {
             </Grid>
           ))}
         </Grid>
+
+        {/* Book a Service */}
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+          <Paper sx={{
+            p: 3, mb: 3, borderRadius: 3,
+            border: `1px solid ${isDark ? 'rgba(255,255,255,0.07)' : 'rgba(108,71,255,0.1)'}`,
+          }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2.5 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <MdSearch color="#6C47FF" size={20} />
+                <Typography variant="h6" fontWeight={800}>Book a Service</Typography>
+              </Box>
+              <Button
+                size="small"
+                endIcon={<MdArrowForward />}
+                onClick={() => navigate('/workers')}
+                sx={{ borderRadius: 2, fontWeight: 700, color: 'primary.main' }}
+              >
+                View All
+              </Button>
+            </Box>
+            <Grid container spacing={1.5}>
+              {[
+                { id: 'electrician',    name: 'Electrician',    emoji: '⚡', color: '#FFB800' },
+                { id: 'plumber',        name: 'Plumber',        emoji: '🔧', color: '#3B82F6' },
+                { id: 'carpenter',      name: 'Carpenter',      emoji: '🪵', color: '#8B5CF6' },
+                { id: 'painter',        name: 'Painter',        emoji: '🎨', color: '#EC4899' },
+                { id: 'AC Repair',      name: 'AC Repair',      emoji: '❄️', color: '#00D4AA' },
+                { id: 'cleaning',       name: 'Cleaning',       emoji: '🧹', color: '#6C47FF' },
+                { id: 'Mechanic',       name: 'Appliances',     emoji: '🔌', color: '#FF6B6B' },
+                { id: 'Plumber',        name: 'Water Tank',     emoji: '💧', color: '#22C55E' },
+              ].map((svc) => (
+                <Grid item xs={3} sm={3} md={1.5} key={svc.id}>
+                  <motion.div whileHover={{ y: -4, scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                    <Box
+                      onClick={() => navigate(`/workers?category=${svc.id}`)}
+                      sx={{
+                        textAlign: 'center', cursor: 'pointer',
+                        p: { xs: 1, sm: 1.5 }, borderRadius: 3,
+                        border: `1px solid ${isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)'}`,
+                        transition: 'all 0.2s ease',
+                        '&:hover': { borderColor: svc.color, boxShadow: `0 4px 20px ${svc.color}30`, bgcolor: `${svc.color}08` },
+                      }}
+                    >
+                      <Typography fontSize={28} mb={0.5}>{svc.emoji}</Typography>
+                      <Typography variant="caption" fontWeight={700} fontSize={10} display="block">
+                        {svc.name}
+                      </Typography>
+                    </Box>
+                  </motion.div>
+                </Grid>
+              ))}
+            </Grid>
+          </Paper>
+        </motion.div>
 
         {/* Active Booking Tracker */}
         {activeBooking && (
@@ -308,6 +384,16 @@ export default function CustomerDashboard() {
                               <Typography variant="caption" color="text.secondary">
                                 {b.worker_name || 'Worker'} · {b.preferred_date}
                               </Typography>
+                              {b.issue_details && (
+                                <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5, flexWrap: 'wrap' }}>
+                                  {b.issue_details.severity && (
+                                    <Chip size="small" label={b.issue_details.severity} sx={{ height: 18, fontSize: 10, fontWeight: 700, bgcolor: b.issue_details.severity === 'high' ? 'rgba(239,68,68,0.1)' : b.issue_details.severity === 'medium' ? 'rgba(255,184,0,0.1)' : 'rgba(34,197,94,0.1)', color: b.issue_details.severity === 'high' ? '#ef4444' : b.issue_details.severity === 'medium' ? '#FFB800' : '#22c55e' }} />
+                                  )}
+                                  {b.issue_details.media_count > 0 && (
+                                    <Chip size="small" label={`${b.issue_details.media_count} photos`} sx={{ height: 18, fontSize: 10, fontWeight: 700, bgcolor: 'rgba(59,130,246,0.1)', color: '#3b82f6' }} />
+                                  )}
+                                </Box>
+                              )}
                             </Box>
                           </Box>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -325,6 +411,41 @@ export default function CustomerDashboard() {
 
           {/* Quick Actions */}
           <Grid item xs={12}>
+            {warranties.length > 0 && (
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.32 }}>
+                <Paper sx={{ p: 3, mb: 3, borderRadius: 3, border: `1px solid ${isDark ? 'rgba(255,255,255,0.07)' : 'rgba(139,92,246,0.15)'}` }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2.5 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <MdVerifiedUser color="#8B5CF6" size={20} />
+                      <Typography variant="h6" fontWeight={800}>My Warranties</Typography>
+                    </Box>
+                    <Chip label={warranties.length} size="small" sx={{ bgcolor: 'rgba(139,92,246,0.1)', color: '#8B5CF6', fontWeight: 800 }} />
+                  </Box>
+                  <Box sx={{ maxHeight: 200, overflowY: 'auto', '&::-webkit-scrollbar': { width: 4 }, '&::-webkit-scrollbar-thumb': { bgcolor: 'rgba(139,92,246,0.3)', borderRadius: 4 } }}>
+                    {warranties.slice(0, 5).map((w, i) => (
+                      <motion.div key={w.id || i} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }}>
+                        <Box sx={{
+                          p: 2, mb: 1.5, borderRadius: 2.5,
+                          border: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}`,
+                          '&:hover': { borderColor: 'rgba(139,92,246,0.25)', bgcolor: 'rgba(139,92,246,0.03)' },
+                          transition: 'all 0.2s ease',
+                        }}>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Box>
+                              <Typography variant="body2" fontWeight={700}>{w.service_type || 'Service'}</Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                Expires: {w.expiry_date ? new Date(w.expiry_date).toLocaleDateString() : 'N/A'}
+                              </Typography>
+                            </Box>
+                            <WarrantyBadge warranty={w} compact />
+                          </Box>
+                        </Box>
+                      </motion.div>
+                    ))}
+                  </Box>
+                </Paper>
+              </motion.div>
+            )}
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}>
               <Paper sx={{ p: 3, borderRadius: 3, border: `1px solid ${isDark ? 'rgba(255,255,255,0.07)' : 'rgba(108,71,255,0.1)'}` }}>
                 <Typography variant="h6" fontWeight={800} mb={2.5}>⚡ Quick Actions</Typography>

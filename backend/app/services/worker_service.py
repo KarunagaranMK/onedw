@@ -216,12 +216,15 @@ async def get_nearby_workers(db, service_type: str, customer_lat: float, custome
         dist = _haversine_km(customer_lat, customer_lon, worker_lat, worker_lon) if (worker_lat and worker_lon) else 0
         entry = _build_result(profile, user, dist)
 
-        if dist <= radius_km or not (worker_lat and worker_lon):
-            all_available.append(entry)
+        # Always add to all_available — strict radius filtering excluded demo workers far from user
+        all_available.append(entry)
         if _skill_matches(profile.get("skills", []) or ([profile.get("service_type", "")] if profile.get("service_type") else [])):
-            if dist <= radius_km or not (worker_lat and worker_lon):
-                skill_matched.append(entry)
+            skill_matched.append(entry)
 
     result = skill_matched if skill_matched else all_available
+    # Always return at least all_available as fallback — never show empty list
+    # when workers exist in the database
+    if not result:
+        result = all_available
     result.sort(key=lambda w: w["distance_km"])
     return result

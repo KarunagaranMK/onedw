@@ -1,5 +1,6 @@
 """
 MongoDB document shape for the 'bookings' collection.
+Extended with issue details, media, AI analysis, warranty, before/after photos.
 """
 from datetime import datetime, timezone
 
@@ -12,10 +13,11 @@ def build_booking_document(
     location: str,
     preferred_date: str,
     preferred_time: str,
+    issue_details: dict = None,
 ) -> dict:
     """Construct a new booking document ready for insertion."""
     now = datetime.now(timezone.utc)
-    return {
+    doc = {
         "request_id": request_id,
         "customer_id": customer_id,
         "worker_id": worker_id,
@@ -27,3 +29,6 @@ def build_booking_document(
         "created_at": now,
         "updated_at": now,
     }
+    if issue_details:
+        doc["issue_details"] = issue_details
+    return doc

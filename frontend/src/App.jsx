@@ -16,12 +16,19 @@ const BookingPage = lazy(() => import('./pages/BookingPage'))
 const CustomerDashboard = lazy(() => import('./pages/CustomerDashboard'))
 const WorkerDashboard = lazy(() => import('./pages/WorkerDashboard'))
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'))
+const AdminLogin = lazy(() => import('./pages/AdminLogin'))
 const ServicesPage = lazy(() => import('./pages/ServicesPage'))
 const AboutPage = lazy(() => import('./pages/AboutPage'))
 const ContactPage = lazy(() => import('./pages/ContactPage'))
 const WorkerProfileSetup = lazy(() => import('./pages/WorkerProfileSetup'))
 const WorkersList = lazy(() => import('./pages/WorkersList'))
 const PaymentPage = lazy(() => import('./pages/PaymentPage'))
+const IssueDetailsPage = lazy(() => import('./pages/IssueDetailsPage'))
+const ProfilePage = lazy(() => import('./pages/ProfilePage'))
+const MyReviewsPage = lazy(() => import('./pages/MyReviewsPage'))
+const MyComplaintsPage = lazy(() => import('./pages/MyComplaintsPage'))
+const ComplaintPage = lazy(() => import('./pages/ComplaintPage'))
+const ComplaintDetailPage = lazy(() => import('./pages/ComplaintDetailPage'))
 
 function App() {
   return (
@@ -83,6 +90,14 @@ function App() {
             }
           />
           <Route
+            path="/issue-details"
+            element={
+              <ProtectedRoute>
+                <IssueDetailsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/booking/:bookingId"
             element={
               <ProtectedRoute>
@@ -117,7 +132,54 @@ function App() {
             }
           />
 
+          {/* ── Profile Route ── */}
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <ProfilePage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* ── Reviews Routes ── */}
+          <Route
+            path="/my-reviews"
+            element={
+              <ProtectedRoute>
+                <MyReviewsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* ── Complaints Routes ── */}
+          <Route
+            path="/my-complaints"
+            element={
+              <ProtectedRoute>
+                <MyComplaintsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/complaint/new"
+            element={
+              <ProtectedRoute>
+                <ComplaintPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/complaint/:id"
+            element={
+              <ProtectedRoute>
+                <ComplaintDetailPage />
+              </ProtectedRoute>
+            }
+          />
+
           {/* ── Admin Routes ── */}
+          <Route path="/admin/login" element={<AdminLogin />} />
           <Route
             path="/admin"
             element={

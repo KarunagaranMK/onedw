@@ -225,3 +225,27 @@ async def seed_demo_workers(db) -> None:
             "updated_at": now,
         }
         await db.workers.insert_one(worker_doc)
+
+    # ── Development admin account (only for in-memory dev fallback) ──
+    try:
+        from app.utils.security import hash_password
+        admin_email = "admin@example.com"
+        existing_admin = await db.users.find_one({"email": admin_email})
+        if not existing_admin:
+            now = datetime.now(timezone.utc)
+            admin_doc = {
+                "_id": ObjectId(),
+                "name": "OneDW Admin",
+                "email": admin_email,
+                "phone": "0000000000",
+                "role": "admin",
+                # Use a secure default for local dev only — advise changing in prod
+                "password": hash_password("Admin@123"),
+                "password_hash": hash_password("Admin@123"),
+                "is_active": True,
+                "is_blocked": False,
+                "created_at": now,
+            }
+            await db.users.insert_one(admin_doc)
+    except Exception:
+        pass

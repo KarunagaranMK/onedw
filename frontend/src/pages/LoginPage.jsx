@@ -30,7 +30,15 @@ export default function LoginPage() {
       await login(formData)
       navigate('/dashboard')
     } catch (err) {
-      setError(err.response?.data?.detail || err.response?.data?.message || 'Invalid email or password.')
+      if (err?.code === 'ERR_NETWORK' || err?.code === 'ECONNREFUSED') {
+        setError('Cannot reach the server. Please make sure the backend is running.')
+      } else if (err?.response?.status === 401) {
+        setError('Invalid email or password. Please try again.')
+      } else if (err?.response?.status === 404) {
+        setError('Server API not found. Please restart the backend server.')
+      } else {
+        setError(err?.response?.data?.detail || err?.response?.data?.message || 'Login failed. Please try again.')
+      }
     } finally {
       setLoading(false)
     }

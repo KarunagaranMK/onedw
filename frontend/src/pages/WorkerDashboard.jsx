@@ -13,7 +13,6 @@ import {
   MdLogout, MdAccessTime, MdPhone, MdVerified,
   MdWifiOff, MdWifi, MdFlashOn,
 } from 'react-icons/md'
-import { FaToolbox } from 'react-icons/fa'
 
 const StatCard = ({ icon, label, value, color, gradient, delay = 0 }) => (
   <motion.div
@@ -310,6 +309,27 @@ export default function WorkerDashboard() {
                               color: b.status === 'accepted' ? '#22C55E' : '#FFB800',
                             }} />
                         </Box>
+                        {b.issue_details && (
+                          <Box sx={{ display: 'flex', gap: 0.5, mb: 0.5, flexWrap: 'wrap' }}>
+                            {b.issue_details.severity && (
+                              <Chip size="small" label={`${b.issue_details.severity} severity`}
+                                sx={{ height: 18, fontSize: 10, fontWeight: 700, bgcolor: b.issue_details.severity === 'high' ? 'rgba(239,68,68,0.1)' : b.issue_details.severity === 'medium' ? 'rgba(255,184,0,0.1)' : 'rgba(34,197,94,0.1)', color: b.issue_details.severity === 'high' ? '#ef4444' : b.issue_details.severity === 'medium' ? '#FFB800' : '#22c55e' }} />
+                            )}
+                            {b.issue_details.media_count > 0 && (
+                              <Chip size="small" label={`${b.issue_details.media_count} media`}
+                                sx={{ height: 18, fontSize: 10, fontWeight: 700, bgcolor: 'rgba(59,130,246,0.1)', color: '#3b82f6' }} />
+                            )}
+                            {b.issue_details.estimated_cost && (
+                              <Chip size="small" label={`~₹${b.issue_details.estimated_cost}`}
+                                sx={{ height: 18, fontSize: 10, fontWeight: 700, bgcolor: 'rgba(139,92,246,0.1)', color: '#8b5cf6' }} />
+                            )}
+                          </Box>
+                        )}
+                        {b.issue_details?.description && (
+                          <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
+                            {b.issue_details.description.slice(0, 80)}…
+                          </Typography>
+                        )}
                         <Typography variant="caption" color="text.secondary">{b.preferred_date} · {b.preferred_time}</Typography>
                       </Box>
                     </motion.div>

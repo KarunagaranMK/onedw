@@ -1,5 +1,6 @@
 """
 Business logic for customer ratings — submission and aggregation.
+Extended with category ratings and media uploads.
 """
 from fastapi import HTTPException, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
@@ -29,8 +30,6 @@ def _serialize_rating(doc: dict) -> dict:
 async def create_rating(
     db: AsyncIOMotorDatabase, payload: RatingCreateSchema, customer_id: str
 ) -> dict:
-    """Submit a rating for a completed booking."""
-    # Verify the booking exists and belongs to this customer
     booking = await db.bookings.find_one(
         {"_id": _to_oid(payload.booking_id), "customer_id": customer_id}
     )
@@ -40,7 +39,6 @@ async def create_rating(
     if booking.get("status") != "completed":
         raise HTTPException(status_code=400, detail="Can only rate completed bookings.")
 
-    # Prevent duplicate ratings for the same booking
     existing = await db.ratings.find_one(
         {"booking_id": payload.booking_id, "customer_id": customer_id}
     )
@@ -57,24 +55,40 @@ async def create_rating(
         stars=stars_value,
         comment=comment_value,
     )
+
+    if payload.punctuality:
+        doc["punctuality"] = payload.punctuality
+    if payload.behavior:
+        doc["behavior"] = payload.behavior
+    if payload.work_quality:
+        doc["work_quality"] = payload.work_quality
+    if payload.communication:
+        doc["communication"] = payload.communication
+    if payload.value_for_money:
+        doc["value_for_money"] = payload.value_for_money
+    if payload.cleanliness:
+        doc["cleanliness"] = payload.cleanliness
+    if payload.review:
+        doc["review"] = payload.review
+    doc["recommend"] = payload.recommend
+    doc["review_images"] = [img.model_dump() for img in payload.review_images]
+    doc["review_videos"] = [vid.model_dump() for vid in payload.review_videos]
+
     result = await db.ratings.insert_one(doc)
     doc["_id"] = result.inserted_id
 
-    # Recompute worker's average rating & update profile
     await _update_worker_average_rating(db, payload.worker_id)
 
     return _serialize_rating(doc)
 
 
 async def _update_worker_average_rating(db: AsyncIOMotorDatabase, worker_id: str):
-    """Recalculate and persist the worker's average star rating."""
     cursor = db.ratings.find({"worker_id": worker_id})
     all_ratings = await cursor.to_list(length=None)
     if all_ratings:
         avg = sum(r.get("stars", r.get("rating", 5)) for r in all_ratings) / len(all_ratings)
         avg_rounded = round(avg, 2)
-        
-        # Match worker profile by user_id OR _id
+
         query = {"$or": [{"user_id": worker_id}]}
         try:
             query["$or"].append({"_id": ObjectId(worker_id)})
@@ -86,20 +100,19 @@ async def _update_worker_average_rating(db: AsyncIOMotorDatabase, worker_id: str
             {"$set": {
                 "average_rating": avg_rounded,
                 "rating": avg_rounded,
-                "updated_at": datetime.now(timezone.utc)
+                "total_reviews": len(all_ratings),
+                "updated_at": datetime.now(timezone.utc),
             }},
         )
 
 
 async def get_worker_ratings(db: AsyncIOMotorDatabase, worker_id: str) -> list[dict]:
-    """Get all ratings for a specific worker."""
     cursor = db.ratings.find({"worker_id": worker_id}).sort("created_at", -1)
     ratings = await cursor.to_list(length=None)
     return [_serialize_rating(r) for r in ratings]
 
 
 async def get_my_ratings(db: AsyncIOMotorDatabase, customer_id: str) -> list[dict]:
-    """Get all ratings submitted by the current customer."""
     cursor = db.ratings.find({"customer_id": customer_id}).sort("created_at", -1)
     ratings = await cursor.to_list(length=None)
     return [_serialize_rating(r) for r in ratings]

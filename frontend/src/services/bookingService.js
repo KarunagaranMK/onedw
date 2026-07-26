@@ -1,14 +1,14 @@
 import api from './api'
 
-/**
- * Booking API functions for the full booking lifecycle.
- */
-
-export const createBooking = async (requestId, workerId) => {
-  const { data } = await api.post('/booking/create', {
+export const createBooking = async (requestId, workerId, issueDetails = null) => {
+  const payload = {
     request_id: requestId,
     worker_id: workerId,
-  })
+  }
+  if (issueDetails) {
+    payload.issue_details = issueDetails
+  }
+  const { data } = await api.post('/booking/create', payload)
   return data
 }
 

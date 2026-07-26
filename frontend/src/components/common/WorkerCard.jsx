@@ -13,6 +13,7 @@ const WorkerCard = ({
   confidence = null,
   onBook,
   loading = false,
+  bookButtonText,
 }) => {
   const { name, skills = [], average_rating, experience_years, hourly_rate, bio, total_jobs, distance_km, is_available } = worker
 
@@ -200,7 +201,7 @@ const WorkerCard = ({
               }),
             }}
           >
-            {!is_available ? 'Currently Busy' : 'Book Now'}
+            {!is_available ? 'Currently Busy' : bookButtonText || 'Book Now'}
           </Button>
         </CardActions>
       </Card>

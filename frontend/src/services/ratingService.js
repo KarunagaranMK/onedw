@@ -1,15 +1,32 @@
 import api from './api'
 
-/**
- * Rating API functions — submit and retrieve worker ratings.
- */
-
-export const submitRating = async ({ bookingId, workerId, stars, comment }) => {
+export const submitRating = async ({
+  bookingId,
+  workerId,
+  stars,
+  review,
+  punctuality,
+  behavior,
+  work_quality,
+  communication,
+  value_for_money,
+  cleanliness,
+  recommend,
+  review_images,
+}) => {
   const { data } = await api.post('/rating/create', {
     booking_id: bookingId,
     worker_id: workerId,
     stars,
-    comment,
+    review,
+    punctuality,
+    behavior,
+    work_quality,
+    communication,
+    value_for_money,
+    cleanliness,
+    recommend,
+    review_images,
   })
   return data
 }

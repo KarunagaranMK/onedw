@@ -1,10 +1,14 @@
 import axios from "axios";
 
+// Use relative "/api" so all requests go through the Vite proxy
+// Vite forwards: /api/* → http://127.0.0.1:8000/api/*
+// This avoids CORS issues and works correctly on any port (5173, 5174, etc.)
 const api = axios.create({
-  baseURL: "http://127.0.0.1:8000/api",
+  baseURL: "/api",
   headers: {
     "Content-Type": "application/json",
   },
+  timeout: 15000,
 });
 
 // ── Request interceptor: attach JWT ──────────────────────────────────────────

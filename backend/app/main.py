@@ -10,10 +10,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
-from app.routers import auth_router, request_router, worker_router, booking_router, ai_router, rating_router, worker_search_router
+from app.routers import auth_router, request_router, worker_router, booking_router, ai_router, rating_router, worker_search_router, issue_router
 from app.routers.otp_notif_payment_router import otp_router, notif_router, payment_router
+from app.routers import review_router, complaint_router, admin_router
 
-
+     
 from app.config import settings
 from app.database.connection import (
     connect_to_mongo,
@@ -58,7 +59,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,
-    allow_origin_regex=r"http://(localhost|127\.0\.0\.1):517[0-9]",
+    allow_origin_regex=r"http://(localhost|127\.0\.0\.1)(:[0-9]+)?",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -100,6 +101,10 @@ app.include_router(worker_search_router.router)
 app.include_router(otp_router)
 app.include_router(notif_router)
 app.include_router(payment_router)
+app.include_router(issue_router.router)
+app.include_router(review_router.router)
+app.include_router(complaint_router.router)
+app.include_router(admin_router.router)
 
 
 # -------------------------

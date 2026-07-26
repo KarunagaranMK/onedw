@@ -13,10 +13,24 @@ from app.models.request_model import build_request_document
 
 
 def _serialize_request(doc: dict) -> dict:
-    """Convert a MongoDB document into a JSON-safe response dict."""
-    doc["id"] = str(doc["_id"])
-    del doc["_id"]
-    return doc
+    """Convert a MongoDB document into a JSON-safe response dict.
+    Copies the doc so the original cursor result is not mutated.
+    Provides safe defaults for all optional fields so Pydantic never
+    raises a validation error on legacy / incomplete documents.
+    """
+    out = dict(doc)
+    out["id"] = str(out.pop("_id", ""))
+    # Ensure required-by-schema fields always exist
+    out.setdefault("service_type", "")
+    out.setdefault("location", "")
+    out.setdefault("latitude", 12.9236)
+    out.setdefault("longitude", 80.1258)
+    out.setdefault("description", "")
+    out.setdefault("preferred_date", "")
+    out.setdefault("preferred_time", "")
+    out.setdefault("status", "pending")
+    out.setdefault("customer_id", "")
+    return out
 
 
 def _to_object_id(request_id: str) -> ObjectId:

@@ -68,8 +68,18 @@ export default function WorkersList() {
   })
 
   const lastFetchRef = useRef(null)
-  const category = searchParams.get('category') || ''
+  const category = searchParams.get('category') || searchParams.get('service') || ''
   const [search, setSearch] = useState({ service: category, query: '' })
+
+  // Sync search state whenever the URL ?category or ?service param changes
+  useEffect(() => {
+    const cat = searchParams.get('category') || searchParams.get('service') || ''
+    setSearch(prev => {
+      if (prev.service === cat) return prev
+      lastFetchRef.current = null
+      return { ...prev, service: cat }
+    })
+  }, [searchParams])
 
   const fetchWorkers = useCallback(async (svc, q, loc, f) => {
     const key = `${svc}|${q}|${loc?.lat}|${loc?.lon}|${filterKey(f)}`

@@ -73,13 +73,15 @@ class RequestUpdateSchema(BaseModel):
 
 class RequestResponseSchema(BaseModel):
     id: str
-    service_type: str
-    location: str
-    latitude: float
-    longitude: float
-    description: str
-    preferred_date: str
-    preferred_time: str
+    service_type: str = ""
+    location: str = ""
+    latitude: Optional[float] = 12.9236
+    longitude: Optional[float] = 80.1258
+    description: str = ""
+    preferred_date: str = ""
+    preferred_time: str = ""
     customer_id: str
-    status: str
-    created_at: datetime
+    status: str = "pending"
+    created_at: Optional[datetime] = None
+
+    model_config = {"from_attributes": True}
