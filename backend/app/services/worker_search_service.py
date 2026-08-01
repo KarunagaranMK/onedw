@@ -47,19 +47,27 @@ async def _serialize(worker_doc: dict, user_doc: dict = None, dist: Optional[flo
 
 async def get_all_workers(db: AsyncIOMotorDatabase) -> list:
     """Fetch all registered workers in MongoDB."""
-    workers = await db.workers.find({}).to_list(length=None)
+    workers = await db.workers.find({}).to_list(length=500)
+
+    # Batch fetch user documents to avoid N+1 queries
+    user_ids = []
+    for w in workers:
+        uid = w.get("user_id")
+        if uid:
+            try:
+                user_ids.append(ObjectId(uid))
+            except Exception:
+                pass
+
+    users_map: dict = {}
+    if user_ids:
+        user_docs = await db.users.find({"_id": {"$in": user_ids}}).to_list(length=None)
+        for u in user_docs:
+            users_map[str(u["_id"])] = u
+
     result = []
     for w in workers:
-        user = None
-        user_id = w.get("user_id")
-        if user_id:
-            try:
-                user = await db.users.find_one({"_id": ObjectId(user_id)})
-            except Exception:
-                try:
-                    user = await db.users.find_one({"_id": user_id})
-                except Exception:
-                    pass
+        user = users_map.get(str(w.get("user_id", "")))
         result.append(await _serialize(w, user))
     return result
 
@@ -79,8 +87,23 @@ async def search_workers(db: AsyncIOMotorDatabase, filters: WorkerSearchFilters)
     # Customers want affordable workers; min_price would exclude cheap workers.
     # Frontend slider represents max_price budget, not minimum.
 
-    workers = await db.workers.find(query).to_list(length=None)
+    workers = await db.workers.find(query).to_list(length=500)
     result = []
+
+    # Batch-fetch all potentially needed user documents upfront
+    user_ids = []
+    for w in workers:
+        uid = w.get("user_id")
+        if uid:
+            try:
+                user_ids.append(ObjectId(uid))
+            except Exception:
+                pass
+    users_map: dict = {}
+    if user_ids:
+        user_docs = await db.users.find({"_id": {"$in": user_ids}}).to_list(length=None)
+        for u in user_docs:
+            users_map[str(u["_id"])] = u
 
     service_query = (filters.service or "").lower().strip()
     text_query = (filters.query or "").lower().strip()   # free-text: name, location, skill
@@ -116,22 +139,13 @@ async def search_workers(db: AsyncIOMotorDatabase, filters: WorkerSearchFilters)
             if not text_matches:
                 continue
 
-        user = None
-        user_id = w.get("user_id")
-        if user_id:
-            try:
-                user = await db.users.find_one({"_id": ObjectId(user_id)})
-            except Exception:
-                try:
-                    user = await db.users.find_one({"_id": user_id})
-                except Exception:
-                    pass
+        user = users_map.get(str(w.get("user_id", "")))
 
-            # Also match free-text against user's name if worker name is missing
-            if text_query and user:
-                user_name = (user.get("name") or "").lower()
-                if not w.get("name") and text_query not in user_name:
-                    continue
+        # Also match free-text against user's name if worker name is missing
+        if text_query and user:
+            user_name = (user.get("name") or "").lower()
+            if not w.get("name") and text_query not in user_name:
+                continue
 
         dist = None
         if filters.lat and filters.lon and w.get("latitude") and w.get("longitude"):

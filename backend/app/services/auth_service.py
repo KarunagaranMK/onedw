@@ -71,6 +71,12 @@ async def login_user(db: AsyncIOMotorDatabase, payload: UserLoginSchema) -> dict
             detail="Invalid email or password.",
         )
 
+    if user.get("is_blocked"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your account has been suspended. Please contact support.",
+        )
+
     user_id = str(user["_id"])
     token = create_access_token(data={
         "sub": user_id,

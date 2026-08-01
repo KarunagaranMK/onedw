@@ -38,6 +38,7 @@ const LoyaltyPage = lazy(() => import('./pages/LoyaltyPage'))
 function App() {
   return (
     <MainLayout>
+      <div aria-live="polite" aria-atomic="false" className="sr-only" />
       <Suspense fallback={<LoadingComponent />}>
         <Routes>
           {/* Public */}
@@ -49,10 +50,8 @@ function App() {
           <Route path="/contact" element={<ContactPage />} />
           {/* Public Reviews page — no auth required */}
           <Route path="/reviews" element={<ReviewsPage />} />
-          <Route path="/testimonials" element={<ReviewsPage />} />
           {/* Workers Discovery — public so anyone can browse */}
           <Route path="/workers" element={<WorkersList />} />
-          <Route path="/workers-list" element={<WorkersList />} />
 
           {/* Smart role router — redirects to correct dashboard based on user.role */}
           <Route

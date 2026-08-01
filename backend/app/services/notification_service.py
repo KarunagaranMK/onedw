@@ -7,13 +7,14 @@ from bson import ObjectId
 from fastapi import HTTPException
 
 
-async def get_my_notifications(db, user_id: str, category: str = None) -> list:
-    """Get all notifications for a user, newest first. Optionally filter by category."""
+async def get_my_notifications(db, user_id: str, category: str = None, limit: int = 50) -> list:
+    """Get notifications for a user, newest first. Optionally filter by category."""
+    limit = min(limit, 100)  # hard cap at 100
     query = {"user_id": str(user_id)}
     if category and category != "all":
         query["category"] = category
-    cursor = db.notifications.find(query).sort("created_at", -1).limit(100)
-    docs = await cursor.to_list(length=100)
+    cursor = db.notifications.find(query).sort("created_at", -1).limit(limit)
+    docs = await cursor.to_list(length=limit)
     return [_serialize(n) for n in docs]
 
 

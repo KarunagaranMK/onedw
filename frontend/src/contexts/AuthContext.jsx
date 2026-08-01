@@ -14,17 +14,15 @@ export const AuthProvider = ({ children }) => {
     const token = data?.access_token || data?.token
     const savedUser = data?.user
 
-    if (token) {
-      localStorage.setItem(TOKEN_KEY, token)
+    if (!token || !savedUser) {
+      // Response is malformed — don't corrupt local state
+      return null
     }
 
-    if (savedUser) {
-      localStorage.setItem(USER_KEY, JSON.stringify(savedUser))
-      setUser(savedUser)
-      return savedUser
-    }
-
-    return null
+    localStorage.setItem(TOKEN_KEY, token)
+    localStorage.setItem(USER_KEY, JSON.stringify(savedUser))
+    setUser(savedUser)
+    return savedUser
   }
 
   useEffect(() => {

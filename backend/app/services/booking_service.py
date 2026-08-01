@@ -117,7 +117,7 @@ async def create_booking(
 
 async def get_customer_bookings(db: AsyncIOMotorDatabase, customer_id: str) -> list[dict]:
     cursor = db.bookings.find({"customer_id": customer_id}).sort("created_at", -1)
-    bookings = await cursor.to_list(length=None)
+    bookings = await cursor.to_list(length=200)
     result = []
     for b in bookings:
         worker_id_str = b.get("worker_id", "")
@@ -138,7 +138,7 @@ async def get_customer_bookings(db: AsyncIOMotorDatabase, customer_id: str) -> l
 
 async def get_worker_bookings(db: AsyncIOMotorDatabase, worker_id: str) -> list[dict]:
     cursor = db.bookings.find({"worker_id": worker_id}).sort("created_at", -1)
-    bookings = await cursor.to_list(length=None)
+    bookings = await cursor.to_list(length=200)
     result = []
     for b in bookings:
         result.append(_serialize_booking(b))

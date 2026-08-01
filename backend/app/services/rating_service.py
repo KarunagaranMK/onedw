@@ -84,19 +84,13 @@ async def create_rating(
 
 async def _update_worker_average_rating(db: AsyncIOMotorDatabase, worker_id: str):
     cursor = db.ratings.find({"worker_id": worker_id})
-    all_ratings = await cursor.to_list(length=None)
+    all_ratings = await cursor.to_list(length=10000)
     if all_ratings:
         avg = sum(r.get("stars", r.get("rating", 5)) for r in all_ratings) / len(all_ratings)
         avg_rounded = round(avg, 2)
 
-        query = {"$or": [{"user_id": worker_id}]}
-        try:
-            query["$or"].append({"_id": ObjectId(worker_id)})
-        except Exception:
-            pass
-
         await db.workers.update_one(
-            query,
+            {"user_id": worker_id},
             {"$set": {
                 "average_rating": avg_rounded,
                 "rating": avg_rounded,

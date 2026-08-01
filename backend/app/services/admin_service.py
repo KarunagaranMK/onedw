@@ -38,54 +38,66 @@ async def get_dashboard_stats(db: AsyncIOMotorDatabase) -> dict:
     pending_verify   = await db.workers.count_documents({"verification_status": "pending"})
     rejected_workers = await db.workers.count_documents({"verification_status": "rejected"})
 
-    # Bookings
-    total_bookings     = await db.bookings.count_documents({})
-    today_bookings     = await db.bookings.count_documents({"created_at": {"$gte": today_start}})
-    completed_bookings = await db.bookings.count_documents({"status": "completed"})
-    pending_bookings   = await db.bookings.count_documents({"status": "pending"})
-    cancelled_bookings = await db.bookings.count_documents({"status": "cancelled"})
-    active_bookings    = await db.bookings.count_documents({"status": {"$in": ["accepted", "worker_on_the_way", "arrived", "started"]}})
+    # Bookings — single $facet pipeline replaces 6 separate count_documents calls
+    booking_facet = await db.bookings.aggregate([
+        {"$facet": {
+            "total":     [{"$count": "n"}],
+            "today":     [{"$match": {"created_at": {"$gte": today_start}}}, {"$count": "n"}],
+            "completed": [{"$match": {"status": "completed"}}, {"$count": "n"}],
+            "pending":   [{"$match": {"status": "pending"}}, {"$count": "n"}],
+            "cancelled": [{"$match": {"status": "cancelled"}}, {"$count": "n"}],
+            "active":    [{"$match": {"status": {"$in": ["accepted", "worker_on_the_way", "arrived", "started"]}}}, {"$count": "n"}],
+            # Revenue by window — completed bookings only
+            "rev_total": [{"$match": {"status": "completed"}}, {"$group": {"_id": None, "t": {"$sum": "$amount"}}}],
+            "rev_today": [{"$match": {"status": "completed", "created_at": {"$gte": today_start}}}, {"$group": {"_id": None, "t": {"$sum": "$amount"}}}],
+            "rev_week":  [{"$match": {"status": "completed", "created_at": {"$gte": week_start}}},  {"$group": {"_id": None, "t": {"$sum": "$amount"}}}],
+            "rev_month": [{"$match": {"status": "completed", "created_at": {"$gte": month_start}}}, {"$group": {"_id": None, "t": {"$sum": "$amount"}}}],
+        }}
+    ]).to_list(length=1)
 
-    # Reviews
-    total_reviews  = await db.reviews.count_documents({})
-    hidden_reviews = await db.reviews.count_documents({"is_hidden": True})
+    bf = booking_facet[0] if booking_facet else {}
+    def _cnt(key): return bf.get(key, [{}])[0].get("n", 0) if bf.get(key) else 0
+    def _rev(key): return bf.get(key, [{}])[0].get("t", 0) if bf.get(key) else 0
 
-    # Complaints
-    total_complaints    = await db.complaints.count_documents({})
-    open_complaints     = await db.complaints.count_documents({"status": "open"})
-    resolved_complaints = await db.complaints.count_documents({"status": "resolved"})
-    critical_complaints = await db.complaints.count_documents({"priority": "critical"})
+    total_bookings     = _cnt("total")
+    today_bookings     = _cnt("today")
+    completed_bookings = _cnt("completed")
+    pending_bookings   = _cnt("pending")
+    cancelled_bookings = _cnt("cancelled")
+    active_bookings    = _cnt("active")
+    total_revenue      = _rev("rev_total")
+    today_revenue      = _rev("rev_today")
+    week_revenue       = _rev("rev_week")
+    month_revenue      = _rev("rev_month")
 
-    # Revenue — sum payment amounts from completed bookings
-    rev_pipeline = [
-        {"$match": {"status": "completed"}},
-        {"$group": {"_id": None, "total": {"$sum": "$amount"}}},
-    ]
-    rev_result = await db.bookings.aggregate(rev_pipeline).to_list(length=1)
-    total_revenue = rev_result[0]["total"] if rev_result else 0
+    # Reviews — single $facet
+    review_facet = await db.reviews.aggregate([
+        {"$facet": {
+            "total":  [{"$count": "n"}],
+            "hidden": [{"$match": {"is_hidden": True}}, {"$count": "n"}],
+        }}
+    ]).to_list(length=1)
+    rf = review_facet[0] if review_facet else {}
+    total_reviews  = rf.get("total",  [{}])[0].get("n", 0) if rf.get("total")  else 0
+    hidden_reviews = rf.get("hidden", [{}])[0].get("n", 0) if rf.get("hidden") else 0
 
-    today_rev_pipeline = [
-        {"$match": {"status": "completed", "created_at": {"$gte": today_start}}},
-        {"$group": {"_id": None, "total": {"$sum": "$amount"}}},
-    ]
-    today_rev = await db.bookings.aggregate(today_rev_pipeline).to_list(length=1)
-    today_revenue = today_rev[0]["total"] if today_rev else 0
+    # Complaints — single $facet
+    complaint_facet = await db.complaints.aggregate([
+        {"$facet": {
+            "total":    [{"$count": "n"}],
+            "open":     [{"$match": {"status": "open"}},     {"$count": "n"}],
+            "resolved": [{"$match": {"status": "resolved"}}, {"$count": "n"}],
+            "critical": [{"$match": {"priority": "critical"}}, {"$count": "n"}],
+        }}
+    ]).to_list(length=1)
+    cf = complaint_facet[0] if complaint_facet else {}
+    def _ccnt(key): return cf.get(key, [{}])[0].get("n", 0) if cf.get(key) else 0
+    total_complaints    = _ccnt("total")
+    open_complaints     = _ccnt("open")
+    resolved_complaints = _ccnt("resolved")
+    critical_complaints = _ccnt("critical")
 
-    week_rev_pipeline = [
-        {"$match": {"status": "completed", "created_at": {"$gte": week_start}}},
-        {"$group": {"_id": None, "total": {"$sum": "$amount"}}},
-    ]
-    week_rev = await db.bookings.aggregate(week_rev_pipeline).to_list(length=1)
-    week_revenue = week_rev[0]["total"] if week_rev else 0
-
-    month_rev_pipeline = [
-        {"$match": {"status": "completed", "created_at": {"$gte": month_start}}},
-        {"$group": {"_id": None, "total": {"$sum": "$amount"}}},
-    ]
-    month_rev = await db.bookings.aggregate(month_rev_pipeline).to_list(length=1)
-    month_revenue = month_rev[0]["total"] if month_rev else 0
-
-    # Commission (default 10%)
+    # Commission
     platform_settings = await get_platform_settings(db)
     commission_rate = float(platform_settings.get("commission_rate", 10))
     platform_commission = round(total_revenue * commission_rate / 100, 2)
@@ -886,20 +898,20 @@ Provide a structured business intelligence report in valid JSON with these exact
 Return ONLY the JSON object, no markdown, no explanation."""
 
     try:
-        import google.generativeai as genai
-        from app.config import settings
-        genai.configure(api_key=settings.gemini_api_key)
-        model = genai.GenerativeModel("gemini-1.5-flash")
-        response = model.generate_content(prompt)
-        text = response.text.strip()
-        # Strip markdown code fences if present
-        if text.startswith("```"):
-            text = text.split("```")[1]
-            if text.startswith("json"):
-                text = text[4:]
-        forecast = json.loads(text.strip())
+        import asyncio
+        from app.services.gemini_service import _get_model, _extract_json
+
+        model = _get_model()
+        if model is None:
+            raise RuntimeError("Gemini model not available")
+
+        # generate_content is a blocking call — run in a thread pool to avoid
+        # blocking the async event loop
+        response = await asyncio.to_thread(model.generate_content, prompt)
+        forecast = _extract_json(response.text)
         forecast["generated_at"] = datetime.now(timezone.utc).isoformat()
         return forecast
+
     except Exception as e:
         # Fallback with statistical projection
         total_rev = stats["revenue"]["total"]

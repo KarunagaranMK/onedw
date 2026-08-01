@@ -1,0 +1,1 @@
+import{h as t}from"./index-CyBfsAQH.js";const i=async()=>{const{data:e}=await t.get("/reviews/my");return e},n=async(e,a=!0)=>{const{data:s}=await t.put(`/reviews/${e}/hide`,null,{params:{hide:a}});return s},o=async e=>{await t.delete(`/reviews/${e}`)},w=async(e,a)=>{const{data:s}=await t.post(`/reviews/${e}/reply`,{reply_text:a});return s};export{o as d,i as g,n as h,w as r};

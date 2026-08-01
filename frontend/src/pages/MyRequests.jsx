@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { Container, Typography, Grid, Alert } from '@mui/material'
+import { useState, useEffect, useCallback } from 'react'
+import { Container, Typography, Grid, Alert, Button } from '@mui/material'
 import { getMyRequests } from '../services/requestService'
 import RequestCard from '../components/requests/RequestCard'
 import LoadingComponent from '../components/common/LoadingComponent'
@@ -12,19 +12,22 @@ const MyRequests = () => {
   const [error, setError] = useState('')
   const navigate = useNavigate()
 
-  useEffect(() => {
-    const fetchRequests = async () => {
-      try {
-        const data = await getMyRequests()
-        setRequests(data)
-      } catch (err) {
-        setError(err.response?.data?.detail || err.response?.data?.message || 'Failed to load your requests. Please try again.')
-      } finally {
-        setLoading(false)
-      }
+  const fetchRequests = useCallback(async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const data = await getMyRequests()
+      setRequests(data)
+    } catch (err) {
+      setError(err.response?.data?.detail || err.response?.data?.message || 'Failed to load your requests. Please try again.')
+    } finally {
+      setLoading(false)
     }
-    fetchRequests()
   }, [])
+
+  useEffect(() => {
+    fetchRequests()
+  }, [fetchRequests])
 
   if (loading) return <LoadingComponent label="Loading your requests..." />
 
@@ -35,7 +38,15 @@ const MyRequests = () => {
       </Typography>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 3 }}>
+        <Alert
+          severity="error"
+          sx={{ mb: 3 }}
+          action={
+            <Button color="inherit" size="small" onClick={fetchRequests}>
+              Try Again
+            </Button>
+          }
+        >
           {error}
         </Alert>
       )}

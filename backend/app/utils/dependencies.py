@@ -13,7 +13,7 @@ from bson import ObjectId
 from bson.errors import InvalidId
 
 from app.utils.security import decode_access_token
-from app.database.connection import get_database
+from app.database.connection import get_database, mongodb
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login")
 
@@ -60,7 +60,8 @@ async def get_current_user(
 
     # ── Fallback: reconstruct user from JWT claims ─────────────────────────
     # This happens when the in-memory DB was wiped after a server restart.
-    # The token is cryptographically valid so we trust its embedded claims.
+    # Only applicable when using the in-memory fallback DB — in production
+    # (real MongoDB), a missing user should be treated as a 401.
     name  = payload.get("name")
     email = payload.get("email")
     role  = payload.get("role")
@@ -70,22 +71,23 @@ async def get_current_user(
         raise credentials_exception
 
     # Re-insert the user into the in-memory DB so future DB lookups succeed
-    try:
-        from bson import ObjectId as OID
-        from datetime import datetime, timezone
-        new_user_doc = {
-            "_id": OID(user_id),
-            "name": name or email.split("@")[0],
-            "email": email,
-            "phone": payload.get("phone", ""),
-            "role": role,
-            "password_hash": "",
-            "is_active": True,
-            "created_at": datetime.now(timezone.utc),
-        }
-        await db.users.insert_one(new_user_doc)
-    except Exception:
-        pass  # Insert might fail if _id already exists; that's fine
+    if mongodb.using_in_memory:
+        try:
+            from bson import ObjectId as OID
+            from datetime import datetime, timezone
+            new_user_doc = {
+                "_id": OID(user_id),
+                "name": name or email.split("@")[0],
+                "email": email,
+                "phone": payload.get("phone", ""),
+                "role": role,
+                "password_hash": "",
+                "is_active": True,
+                "created_at": datetime.now(timezone.utc),
+            }
+            await db.users.insert_one(new_user_doc)
+        except Exception:
+            pass  # Insert might fail if _id already exists; that's fine
 
     return {
         "_id": user_id,

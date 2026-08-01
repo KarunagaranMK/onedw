@@ -10,6 +10,7 @@ from typing import Optional
 from app.services import admin_service
 from app.database.connection import get_database
 from app.utils.dependencies import get_current_user
+from app.config import settings
 
 router = APIRouter(prefix="/api/admin", tags=["Admin"])
 
@@ -21,7 +22,7 @@ def _require_admin(current_user: dict):
 
 # ── Setup / Seed ──────────────────────────────────────────────────────────────
 # One-time endpoint to create admin user. Protected by a setup key.
-SETUP_KEY = "onedw-setup-2025"
+# Override via ADMIN_SETUP_KEY env variable in production.
 
 class AdminSetupSchema(BaseModel):
     setup_key: str
@@ -36,7 +37,8 @@ async def setup_admin(
     db: AsyncIOMotorDatabase = Depends(get_database),
 ):
     """Create admin user if none exists. Requires setup_key."""
-    if payload.setup_key != SETUP_KEY:
+    _key = getattr(settings, "admin_setup_key", "onedw-setup-2025")
+    if payload.setup_key != _key:
         raise HTTPException(status_code=403, detail="Invalid setup key.")
     from app.utils.security import hash_password
     from datetime import datetime, timezone

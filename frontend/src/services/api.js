@@ -8,7 +8,7 @@ const api = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
-  timeout: 15000,
+  timeout: 30000, // 30s — accommodates slow Gemini AI endpoints
 });
 
 // ── Request interceptor: attach JWT ──────────────────────────────────────────
@@ -26,6 +26,12 @@ api.interceptors.response.use(
   (error) => {
     const isAuthRoute = error.config?.url?.includes('/auth/')
     const isAdminPage = window.location.pathname.startsWith('/admin')
+
+    // Retry once on network errors (ECONNABORTED / ERR_NETWORK) — never on 4xx/5xx
+    if (!error.response && !error.config?._retried) {
+      error.config._retried = true
+      return api(error.config)
+    }
 
     if (error.response?.status === 401 && !isAuthRoute) {
       // Clear stale session data

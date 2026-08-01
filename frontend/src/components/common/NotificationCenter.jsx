@@ -122,6 +122,7 @@ const NotifCard = ({ notif, onRead, onDelete }) => {
         <Tooltip title="Delete">
           <IconButton
             size="small"
+            aria-label={`Delete notification: ${notif.title}`}
             onClick={(e) => { e.stopPropagation(); onDelete(notif.id) }}
             sx={{ flexShrink: 0, opacity: 0.4, '&:hover': { opacity: 1, color: 'error.main' }, transition: 'all 0.2s' }}
           >
@@ -251,7 +252,7 @@ export default function NotificationCenter({ open, onClose, onUnreadChange }) {
               )}
             </Box>
           </Box>
-          <IconButton onClick={onClose} sx={{ color: 'text.secondary' }}>
+          <IconButton onClick={onClose} aria-label="Close notifications panel" sx={{ color: 'text.secondary' }}>
             <MdClose size={20} />
           </IconButton>
         </Box>

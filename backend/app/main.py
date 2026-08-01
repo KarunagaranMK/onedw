@@ -15,7 +15,7 @@ from app.routers.otp_notif_payment_router import otp_router, notif_router, payme
 from app.routers import review_router, complaint_router, admin_router, wallet_router, chat_router
 from app.routers import loyalty_router
 
-     
+
 from app.config import settings
 from app.database.connection import (
     connect_to_mongo,
@@ -45,12 +45,15 @@ async def lifespan(app: FastAPI):
 
     # ── Auto-seed admin user and default data ──────────────────────────────
     try:
-        from app.database.connection import get_database
+        from app.database.indexes import ensure_indexes
         from app.utils.security import hash_password
         from datetime import datetime, timezone
 
         db = await anext(get_database())
         now = datetime.now(timezone.utc)
+
+        # Ensure all indexes exist (skipped gracefully for InMemoryDB)
+        await ensure_indexes(db)
 
         # Create admin user if missing
         admin = await db.users.find_one({"role": "admin"})
@@ -194,23 +197,5 @@ async def health_check():
     return {
         "status": "healthy" if db_ok else "degraded",
         "database": db_ok,
-    }
-
-
-# -------------------------
-# MongoDB Test
-# -------------------------
-@app.get("/mongo-test", tags=["Database"])
-async def mongo_test():
-    db = get_database()
-
-    result = await db.test.insert_one(
-        {
-            "message": "MongoDB Connected Successfully"
-        }
-    )
-
-    return {
-        "status": "success",
-        "inserted_id": str(result.inserted_id),
+        "env": settings.app_env,
     }

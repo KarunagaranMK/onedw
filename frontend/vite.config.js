@@ -31,9 +31,29 @@ export default defineConfig({
       },
     }),
   ],
+  build: {
+    target: 'es2020',
+    chunkSizeWarningLimit: 800,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // MUI core + icons in one chunk
+          'vendor-mui': ['@mui/material', '@mui/icons-material', '@emotion/react', '@emotion/styled'],
+          // Animation library
+          'vendor-framer': ['framer-motion'],
+          // Charts
+          'vendor-recharts': ['recharts'],
+          // Maps
+          'vendor-leaflet': ['leaflet', 'react-leaflet'],
+          // React ecosystem
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+        },
+      },
+    },
+  },
   server: {
     port: 5173,
-    open: true,
+    open: process.env.NODE_ENV !== 'production',
     proxy: {
       '/api': {
         target: 'http://127.0.0.1:8000',

@@ -1,1 +1,0 @@
-import{p as e}from"./index-8Fa_f1er.js";const r=async t=>{const{data:s}=await e.post("/request/create",t);return s},c=async()=>{const{data:t}=await e.get("/request/my-requests");return t};export{r as c,c as g};

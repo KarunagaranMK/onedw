@@ -139,7 +139,7 @@ export default function MyComplaintsPage() {
             { label: 'Open', value: stats.open, color: '#FF6B35' },
             { label: 'Resolved', value: stats.resolved, color: '#22C55E' },
           ].map((s, i) => (
-            <Grid item xs={4} key={s.label}>
+            <Grid item xs={12} sm={4} key={s.label}>
               <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }}>
                 <Paper sx={{
                   p: 2.5, borderRadius: 3, textAlign: 'center',
@@ -155,7 +155,11 @@ export default function MyComplaintsPage() {
         </Grid>
 
         {/* Complaints List */}
-        {loading && <LinearProgress sx={{ borderRadius: 1, mb: 3 }} />}
+        {loading && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+            <CircularProgress sx={{ color: '#6C47FF' }} />
+          </Box>
+        )}
         {error && <Alert severity="error" sx={{ mb: 3, borderRadius: 3 }}>{error}</Alert>}
 
         {!loading && complaints.length === 0 ? (
