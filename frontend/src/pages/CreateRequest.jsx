@@ -32,12 +32,20 @@ const CreateRequest = () => {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' })
   const navigate = useNavigate()
 
-  // Pre-fill service type from URL query param
+  // Pre-fill service type from URL query param (?category=Electrician or ?category=electrician)
   useEffect(() => {
-    const categoryId = searchParams.get('category')
-    if (categoryId) {
-      const matched = SERVICE_CATEGORIES.find((cat) => cat.id === categoryId)
-      if (matched) setFormData((prev) => ({ ...prev, service_type: matched.name }))
+    const categoryParam = searchParams.get('category')
+    if (categoryParam) {
+      const lc = categoryParam.toLowerCase()
+      const matched = SERVICE_CATEGORIES.find(
+        (cat) => cat.id === lc || cat.name.toLowerCase() === lc
+      )
+      if (matched) {
+        setFormData((prev) => ({ ...prev, service_type: matched.name }))
+      } else {
+        // Use the raw value if no exact match (handles new categories like "AC Repair")
+        setFormData((prev) => ({ ...prev, service_type: categoryParam }))
+      }
     }
   }, [searchParams])
 
@@ -126,9 +134,20 @@ const CreateRequest = () => {
     if (!validate()) return
     setLoading(true)
     try {
-      const created = await createRequest(formData)
+      const workerId = searchParams.get('worker') || ''
+      const payload = { ...formData }
+      if (workerId) payload.preferred_worker_id = workerId
+
+      const created = await createRequest(payload)
       setSnackbar({ open: true, message: '✅ Service request submitted!', severity: 'success' })
-      setTimeout(() => navigate(`/find-workers?requestId=${created.id}&service=${encodeURIComponent(formData.service_type)}&lat=${formData.latitude}&lon=${formData.longitude}`), 1200)
+      const params = new URLSearchParams({
+        requestId: created.id,
+        service: formData.service_type,
+        lat: formData.latitude,
+        lon: formData.longitude,
+      })
+      if (workerId) params.set('worker', workerId)
+      setTimeout(() => navigate(`/find-workers?${params.toString()}`), 1200)
     } catch (err) {
       setSnackbar({
         open: true,

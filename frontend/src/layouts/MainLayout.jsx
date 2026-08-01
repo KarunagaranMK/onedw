@@ -1,6 +1,7 @@
 import { Box } from '@mui/material'
 import Navbar from '../components/layout/Navbar'
 import Footer from '../components/layout/Footer'
+import AIAssistant from '../components/ai/AIAssistant'
 
 const MainLayout = ({ children }) => (
   <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
@@ -9,6 +10,8 @@ const MainLayout = ({ children }) => (
       {children}
     </Box>
     <Footer />
+    {/* Global AI assistant — floats on every page */}
+    <AIAssistant />
   </Box>
 )
 

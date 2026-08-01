@@ -29,6 +29,11 @@ const MyReviewsPage = lazy(() => import('./pages/MyReviewsPage'))
 const MyComplaintsPage = lazy(() => import('./pages/MyComplaintsPage'))
 const ComplaintPage = lazy(() => import('./pages/ComplaintPage'))
 const ComplaintDetailPage = lazy(() => import('./pages/ComplaintDetailPage'))
+const WalletPage = lazy(() => import('./pages/WalletPage'))
+const ReviewsPage = lazy(() => import('./pages/ReviewsPage'))
+const ChatPage = lazy(() => import('./pages/ChatPage'))
+const VideoInspectionPage = lazy(() => import('./pages/VideoInspectionPage'))
+const LoyaltyPage = lazy(() => import('./pages/LoyaltyPage'))
 
 function App() {
   return (
@@ -42,6 +47,9 @@ function App() {
           <Route path="/services" element={<ServicesPage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/contact" element={<ContactPage />} />
+          {/* Public Reviews page — no auth required */}
+          <Route path="/reviews" element={<ReviewsPage />} />
+          <Route path="/testimonials" element={<ReviewsPage />} />
           {/* Workers Discovery — public so anyone can browse */}
           <Route path="/workers" element={<WorkersList />} />
           <Route path="/workers-list" element={<WorkersList />} />
@@ -152,6 +160,42 @@ function App() {
             }
           />
 
+          {/* ── Wallet Route ── */}
+          <Route
+            path="/wallet"
+            element={
+              <ProtectedRoute>
+                <WalletPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* ── Chat & Video Routes ── */}
+          <Route
+            path="/chat"
+            element={
+              <ProtectedRoute>
+                <ChatPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/chat/:sessionId"
+            element={
+              <ProtectedRoute>
+                <ChatPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/video/:sessionId"
+            element={
+              <ProtectedRoute>
+                <VideoInspectionPage />
+              </ProtectedRoute>
+            }
+          />
+
           {/* ── Complaints Routes ── */}
           <Route
             path="/my-complaints"
@@ -185,6 +229,16 @@ function App() {
             element={
               <ProtectedRoute>
                 <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* ── Loyalty Route ── */}
+          <Route
+            path="/loyalty"
+            element={
+              <ProtectedRoute>
+                <LoyaltyPage />
               </ProtectedRoute>
             }
           />

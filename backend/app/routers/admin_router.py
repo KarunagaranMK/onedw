@@ -19,6 +19,50 @@ def _require_admin(current_user: dict):
         raise HTTPException(status_code=403, detail="Admin access required.")
 
 
+# ── Setup / Seed ──────────────────────────────────────────────────────────────
+# One-time endpoint to create admin user. Protected by a setup key.
+SETUP_KEY = "onedw-setup-2025"
+
+class AdminSetupSchema(BaseModel):
+    setup_key: str
+    email: str = "admin@onedw.in"
+    password: str = "Admin@123"
+    name: str = "OneDW Admin"
+
+
+@router.post("/setup")
+async def setup_admin(
+    payload: AdminSetupSchema,
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    """Create admin user if none exists. Requires setup_key."""
+    if payload.setup_key != SETUP_KEY:
+        raise HTTPException(status_code=403, detail="Invalid setup key.")
+    from app.utils.security import hash_password
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc)
+    existing = await db.users.find_one({"role": "admin"})
+    if existing:
+        return {"message": f"Admin already exists: {existing.get('email')}", "created": False}
+    hashed = hash_password(payload.password)
+    result = await db.users.insert_one({
+        "name": payload.name,
+        "email": payload.email,
+        "phone": "+911234567890",
+        "password": hashed,
+        "role": "admin",
+        "is_active": True,
+        "is_blocked": False,
+        "created_at": now,
+        "updated_at": now,
+    })
+    return {
+        "message": f"Admin created: {payload.email}",
+        "created": True,
+        "id": str(result.inserted_id),
+    }
+
+
 # ── Dashboard ─────────────────────────────────────────────────────────────────
 
 @router.get("/dashboard")
@@ -68,6 +112,130 @@ async def service_popularity(
 ):
     _require_admin(current_user)
     return await admin_service.get_service_popularity(db)
+
+
+# ── Phase 17 BI Analytics ─────────────────────────────────────────────────────
+
+@router.get("/analytics/daily-revenue")
+async def daily_revenue(
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    _require_admin(current_user)
+    settings = await admin_service.get_platform_settings(db)
+    rate = float(settings.get("commission_rate", 10))
+    return await admin_service.get_daily_revenue(db, commission_rate=rate)
+
+
+@router.get("/analytics/yearly-revenue")
+async def yearly_revenue(
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    _require_admin(current_user)
+    settings = await admin_service.get_platform_settings(db)
+    rate = float(settings.get("commission_rate", 10))
+    return await admin_service.get_yearly_revenue(db, commission_rate=rate)
+
+
+@router.get("/analytics/peak-hours")
+async def peak_hours(
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    _require_admin(current_user)
+    return await admin_service.get_peak_hours(db)
+
+
+@router.get("/analytics/top-workers")
+async def top_workers(
+    limit: int = Query(10),
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    _require_admin(current_user)
+    return await admin_service.get_top_workers(db, limit=limit)
+
+
+@router.get("/analytics/top-services")
+async def top_services(
+    limit: int = Query(10),
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    _require_admin(current_user)
+    return await admin_service.get_top_services(db, limit=limit)
+
+
+@router.get("/analytics/customer-growth")
+async def customer_growth(
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    _require_admin(current_user)
+    return await admin_service.get_customer_growth(db)
+
+
+@router.get("/analytics/worker-growth")
+async def worker_growth(
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    _require_admin(current_user)
+    return await admin_service.get_worker_growth(db)
+
+
+@router.get("/analytics/complaint-analysis")
+async def complaint_analysis(
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    _require_admin(current_user)
+    return await admin_service.get_complaint_analysis(db)
+
+
+@router.get("/analytics/ai-forecast")
+async def ai_forecast(
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    """Admin: Gemini AI-powered business forecast and health analysis."""
+    _require_admin(current_user)
+    return await admin_service.get_ai_forecast(db)
+
+
+# ── AI Insights ───────────────────────────────────────────────────────────────
+
+@router.get("/ai-insights")
+async def ai_insights(
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    """Admin: AI-generated telemetry — common problems, peak hours, CSAT, demand."""
+    _require_admin(current_user)
+    return await admin_service.get_ai_insights(db)
+
+
+# ── Notification Broadcast ────────────────────────────────────────────────────
+
+class BroadcastPayload(BaseModel):
+    title: str
+    message: str
+    type: str = "announcement"          # announcement | maintenance | emergency
+    target: str = "all"                 # all | customers | workers
+
+
+@router.post("/broadcast")
+async def broadcast_notification(
+    payload: BroadcastPayload,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    """Admin: broadcast a notification to all users or a specific role."""
+    _require_admin(current_user)
+    return await admin_service.broadcast_notification(
+        db, payload.title, payload.message, payload.type, payload.target, current_user["_id"]
+    )
 
 
 # ── Customer Management ───────────────────────────────────────────────────────
@@ -218,50 +386,37 @@ async def issue_warning(
     )
 
 
-# ── Platform Settings ─────────────────────────────────────────────────────────
+# ── Ban ───────────────────────────────────────────────────────────────────────
 
-@router.get("/settings")
-async def get_settings(
+class BanPayload(BaseModel):
+    target_id: str
+    target_type: str   # "worker" | "customer"
+    reason: str
+    permanent: bool = False
+
+
+@router.post("/ban")
+async def ban_user(
+    payload: BanPayload,
     current_user: dict = Depends(get_current_user),
     db: AsyncIOMotorDatabase = Depends(get_database),
 ):
+    """Admin: ban a worker or customer (temporary or permanent)."""
     _require_admin(current_user)
-    return await admin_service.get_platform_settings(db)
+    return await admin_service.ban_user(
+        db, payload.target_id, payload.target_type,
+        payload.reason, payload.permanent, current_user["_id"],
+    )
 
 
-class SettingUpdatePayload(BaseModel):
-    key: str
-    value: object
-
-
-@router.put("/settings")
-async def update_setting(
-    payload: SettingUpdatePayload,
-    current_user: dict = Depends(get_current_user),
-    db: AsyncIOMotorDatabase = Depends(get_database),
-):
-    _require_admin(current_user)
-    return await admin_service.update_platform_setting(db, payload.key, payload.value)
-
-
-# ── System Health ─────────────────────────────────────────────────────────────
-
-@router.get("/system-health")
-async def system_health(
-    current_user: dict = Depends(get_current_user),
-    db: AsyncIOMotorDatabase = Depends(get_database),
-):
-    _require_admin(current_user)
-    from app.database.connection import check_db_health
-    db_ok = await check_db_health()
-    return {"status": "healthy" if db_ok else "degraded", "database": db_ok}
-
+# ── Refund ────────────────────────────────────────────────────────────────────
 
 class RefundPayload(BaseModel):
     booking_id: str
     amount: float
     refund_type: str   # "full" | "partial" | "rejected"
     reason: str
+    refund_destination: str = "wallet"  # "wallet" | "original_payment"
 
 
 @router.post("/refund")
@@ -278,6 +433,7 @@ async def process_refund(
         amount=payload.amount,
         refund_type=payload.refund_type,
         reason=payload.reason,
+        refund_destination=payload.refund_destination,
         admin_id=current_user["_id"],
     )
 
@@ -308,3 +464,16 @@ async def update_setting(
     """Admin: update a single platform setting by key."""
     _require_admin(current_user)
     return await admin_service.update_platform_setting(db, key, payload.value)
+
+
+# ── System Health ─────────────────────────────────────────────────────────────
+
+@router.get("/system-health")
+async def system_health(
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    _require_admin(current_user)
+    from app.database.connection import check_db_health
+    db_ok = await check_db_health()
+    return {"status": "healthy" if db_ok else "degraded", "database": db_ok}

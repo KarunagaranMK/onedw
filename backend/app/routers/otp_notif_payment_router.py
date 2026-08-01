@@ -40,13 +40,14 @@ async def verify_otp(
 # ── Notification Router ───────────────────────────────────────────────────────
 notif_router = APIRouter(prefix="/api/notifications", tags=["Notifications"])
 
-@notif_router.get("", response_model=list[NotificationResponse])
+@notif_router.get("")
 async def get_notifications(
+    category: str = None,
     current_user: dict = Depends(get_current_user),
     db: AsyncIOMotorDatabase = Depends(get_database),
 ):
-    """Get all notifications for the logged-in user."""
-    return await notification_service.get_my_notifications(db, current_user["_id"])
+    """Get all notifications for the logged-in user. Optionally filter by category."""
+    return await notification_service.get_my_notifications(db, current_user["_id"], category=category)
 
 
 @notif_router.get("/unread-count")
@@ -59,6 +60,15 @@ async def get_unread_count(
     return {"unread_count": count}
 
 
+@notif_router.get("/stats")
+async def get_notification_stats(
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    """Get notification counts by category + total unread."""
+    return await notification_service.get_notification_stats(db, current_user["_id"])
+
+
 @notif_router.put("/mark-all-read")
 async def mark_all_read(
     current_user: dict = Depends(get_current_user),
@@ -66,6 +76,15 @@ async def mark_all_read(
 ):
     """Mark all notifications as read."""
     return await notification_service.mark_all_read(db, current_user["_id"])
+
+
+@notif_router.delete("/all")
+async def delete_all_notifications(
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    """Delete all notifications for the current user."""
+    return await notification_service.delete_all_notifications(db, current_user["_id"])
 
 
 @notif_router.put("/{notification_id}/read")
@@ -76,6 +95,16 @@ async def mark_read(
 ):
     """Mark a single notification as read."""
     return await notification_service.mark_read(db, notification_id, current_user["_id"])
+
+
+@notif_router.delete("/{notification_id}")
+async def delete_notification(
+    notification_id: str,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    """Delete a single notification."""
+    return await notification_service.delete_notification(db, notification_id, current_user["_id"])
 
 
 # ── Payment Router ────────────────────────────────────────────────────────────

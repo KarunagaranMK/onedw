@@ -24,13 +24,17 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const isAuthRoute = error.config?.url?.includes('/auth/')
+    const isAdminPage = window.location.pathname.startsWith('/admin')
+
+    if (error.response?.status === 401 && !isAuthRoute) {
       // Clear stale session data
       localStorage.removeItem("onedw-token");
       localStorage.removeItem("onedw-user");
-      // Redirect to login — but only if not already there
-      if (window.location.pathname !== "/login") {
-        window.location.href = "/login?expired=1";
+      // Redirect to correct login page
+      const redirectTo = isAdminPage ? "/admin/login" : "/login"
+      if (window.location.pathname !== redirectTo) {
+        window.location.href = `${redirectTo}?expired=1`;
       }
     }
     return Promise.reject(error);

@@ -34,6 +34,35 @@ async def my_reviews(
     return await review_service.get_my_reviews(db, current_user["_id"])
 
 
+# ── IMPORTANT: /public and /worker must come BEFORE /{review_id} ─────────────
+
+@router.get("/public", response_model=list[ReviewResponseSchema])
+async def public_reviews(
+    service: str = Query(None),
+    min_rating: int = Query(None),
+    skip: int = Query(0),
+    limit: int = Query(20),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    """Public: paginated reviews for the public reviews page. No auth required."""
+    return await review_service.get_public_reviews(
+        db, service=service, min_rating=min_rating, skip=skip, limit=limit
+    )
+
+
+@router.post("/worker", status_code=status.HTTP_201_CREATED)
+async def submit_worker_review(
+    payload: WorkerReviewCreateSchema,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    """Worker submits a review of a customer after a completed booking."""
+    if current_user.get("role") != "worker":
+        from fastapi import HTTPException
+        raise HTTPException(status_code=403, detail="Only workers can use this endpoint.")
+    return await review_service.create_worker_review(db, payload, current_user["_id"])
+
+
 @router.get("", response_model=list[ReviewResponseSchema])
 async def list_reviews(
     worker_id: str = Query(None),
@@ -53,6 +82,8 @@ async def list_reviews(
         limit=limit,
     )
 
+
+# ── Parameterized routes (must come AFTER literal segment routes) ─────────────
 
 @router.get("/{review_id}", response_model=ReviewResponseSchema)
 async def get_review(
@@ -101,30 +132,3 @@ async def admin_reply(
         from fastapi import HTTPException
         raise HTTPException(status_code=403, detail="Admin access required.")
     return await review_service.admin_reply_to_review(db, review_id, payload)
-
-
-@router.post("/worker", status_code=status.HTTP_201_CREATED)
-async def submit_worker_review(
-    payload: WorkerReviewCreateSchema,
-    current_user: dict = Depends(get_current_user),
-    db: AsyncIOMotorDatabase = Depends(get_database),
-):
-    """Worker submits a review of a customer after a completed booking."""
-    if current_user.get("role") != "worker":
-        from fastapi import HTTPException
-        raise HTTPException(status_code=403, detail="Only workers can use this endpoint.")
-    return await review_service.create_worker_review(db, payload, current_user["_id"])
-
-
-@router.get("/public", response_model=list[ReviewResponseSchema])
-async def public_reviews(
-    service: str = Query(None),
-    min_rating: int = Query(None),
-    skip: int = Query(0),
-    limit: int = Query(20),
-    db: AsyncIOMotorDatabase = Depends(get_database),
-):
-    """Public: paginated reviews for the public reviews page. No auth required."""
-    return await review_service.get_public_reviews(
-        db, service=service, min_rating=min_rating, skip=skip, limit=limit
-    )

@@ -85,6 +85,13 @@ async def create_customer_review(
     # Update worker's aggregate rating
     await _update_worker_rating(db, payload.worker_id)
 
+    # Award loyalty points for leaving a review
+    try:
+        from app.services.loyalty_service import award_review_points
+        await award_review_points(db, customer_id)
+    except Exception:
+        pass
+
     return _serialize(doc)
 
 

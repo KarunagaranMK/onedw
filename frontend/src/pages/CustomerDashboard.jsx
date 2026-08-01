@@ -18,13 +18,13 @@ import BookingStepper from '../components/common/BookingStepper'
 import WarrantyBadge from '../components/common/WarrantyBadge'
 
 const STATUS_CONFIG = {
-  pending:          { color: '#FFB800', bg: 'rgba(255,184,0,0.1)',     label: '⏳ Pending' },
-  accepted:         { color: '#6C47FF', bg: 'rgba(108,71,255,0.1)',    label: '✅ Accepted' },
-  worker_on_the_way:{ color: '#3B82F6', bg: 'rgba(59,130,246,0.1)',    label: '🚗 On Way' },
-  arrived:          { color: '#8B5CF6', bg: 'rgba(139,92,246,0.1)',    label: '📍 Arrived' },
-  started:          { color: '#00D4AA', bg: 'rgba(0,212,170,0.1)',     label: '🔧 Started' },
-  completed:        { color: '#22C55E', bg: 'rgba(34,197,94,0.1)',     label: '✔ Done' },
-  cancelled:        { color: '#EF4444', bg: 'rgba(239,68,68,0.1)',     label: '✗ Cancelled' },
+  pending:          { color: '#f59e0b', bg: 'rgba(245,158,11,0.1)',  label: '⏳ Pending' },
+  accepted:         { color: '#2563eb', bg: 'rgba(37,99,235,0.1)',   label: '✅ Accepted' },
+  worker_on_the_way:{ color: '#3b82f6', bg: 'rgba(59,130,246,0.1)', label: '🚗 On Way' },
+  arrived:          { color: '#7c3aed', bg: 'rgba(124,58,237,0.1)', label: '📍 Arrived' },
+  started:          { color: '#14b8a6', bg: 'rgba(20,184,166,0.1)', label: '🔧 Started' },
+  completed:        { color: '#22c55e', bg: 'rgba(34,197,94,0.1)',  label: '✔ Done' },
+  cancelled:        { color: '#ef4444', bg: 'rgba(239,68,68,0.1)',  label: '✗ Cancelled' },
 }
 
 const StatusBadge = ({ status }) => {

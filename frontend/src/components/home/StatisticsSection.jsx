@@ -1,159 +1,49 @@
-import { useEffect, useState, useRef } from 'react'
-import { Container, Grid, Box, Typography, Paper } from '@mui/material'
-import { motion, useInView, useMotionValue, useSpring, animate } from 'framer-motion'
-import api from '../../services/api'
+import { Box, Container, Typography, Grid, useTheme } from '@mui/material'
+import { motion } from 'framer-motion'
 
-// Animated counter component
-function AnimatedCounter({ target, suffix = '' }) {
-  const ref = useRef(null)
-  const [display, setDisplay] = useState(0)
-  const inView = useInView(ref, { once: true })
-
-  useEffect(() => {
-    if (!inView) return
-    const controls = animate(0, target, {
-      duration: 1.8,
-      ease: 'easeOut',
-      onUpdate: (v) => setDisplay(Math.round(v)),
-    })
-    return () => controls.stop()
-  }, [inView, target])
-
-  return (
-    <span ref={ref}>
-      {display.toLocaleString('en-IN')}{suffix}
-    </span>
-  )
-}
-
-
+const STATS = [
+  { value: '50K+', label: 'Happy Customers', icon: '😊', color: '#2563eb' },
+  { value: '2000+', label: 'Verified Professionals', icon: '✅', color: '#14b8a6' },
+  { value: '100+', label: 'Service Categories', icon: '🛠️', color: '#f59e0b' },
+  { value: '4.9★', label: 'Average Rating', icon: '⭐', color: '#ec4899' },
+]
 
 export default function StatisticsSection() {
-  const [stats, setStats] = useState({
-    total_customers: 0,
-    total_workers: 0,
-    total_bookings: 0,
-    completed_jobs: 0,
-  })
-  const [loaded, setLoaded] = useState(false)
-
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const { data } = await api.get('/request/platform-stats')
-        setStats({
-          total_customers: data.total_customers || 0,
-          total_workers: data.total_workers || 0,
-          total_bookings: data.total_bookings || 0,
-          completed_jobs: data.completed_jobs || 0,
-        })
-      } catch {
-        // Keep defaults at 0 if API unavailable
-      } finally {
-        setLoaded(true)
-      }
-    }
-    fetchStats()
-  }, [])
-
-  const cards = [
-    {
-      icon: '👥',
-      label: 'Happy Customers',
-      value: stats.total_customers,
-      suffix: '+',
-      color: '#6C47FF',
-      gradient: 'linear-gradient(135deg,#6C47FF,#9B72FF)',
-    },
-    {
-      icon: '🔧',
-      label: 'Verified Professionals',
-      value: stats.total_workers,
-      suffix: '+',
-      color: '#00D4AA',
-      gradient: 'linear-gradient(135deg,#00D4AA,#00B894)',
-    },
-    {
-      icon: '📋',
-      label: 'Total Bookings',
-      value: stats.total_bookings,
-      suffix: '+',
-      color: '#FFB800',
-      gradient: 'linear-gradient(135deg,#FFB800,#FFD54F)',
-    },
-    {
-      icon: '✅',
-      label: 'Jobs Completed',
-      value: stats.completed_jobs,
-      suffix: '+',
-      color: '#3B82F6',
-      gradient: 'linear-gradient(135deg,#3B82F6,#60A5FA)',
-    },
-  ]
-
+  const theme = useTheme()
+  const isDark = theme.palette.mode === 'dark'
 
   return (
-    <Box
-      sx={{
-        background: 'linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%)',
-        py: 10,
-      }}
-    >
-      <Container maxWidth="lg">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-        >
-          <Box sx={{ textAlign: 'center', mb: 6 }}>
-            <Typography
-              variant="overline"
-              sx={{ color: '#6366f1', fontWeight: 700, letterSpacing: 3 }}
-            >
-              📊 LIVE PLATFORM DATA
-            </Typography>
-            <Typography variant="h3" fontWeight={900} sx={{ color: '#fff', mt: 1, mb: 1.5 }}>
-              Trusted by Thousands
-            </Typography>
-            <Typography sx={{ color: 'rgba(255,255,255,0.6)', maxWidth: 500, mx: 'auto' }}>
-              Real-time numbers from our platform — every customer and professional counted.
-            </Typography>
-          </Box>
-        </motion.div>
+    <Box sx={{
+      py: { xs: 8, md: 10 },
+      background: isDark
+        ? 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)'
+        : 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 50%, #14b8a6 100%)',
+      position: 'relative', overflow: 'hidden',
+    }}>
+      {/* Background circles */}
+      <Box sx={{ position: 'absolute', top: -60, right: -60, width: 240, height: 240, borderRadius: '50%', background: 'rgba(255,255,255,0.04)', pointerEvents: 'none' }} />
+      <Box sx={{ position: 'absolute', bottom: -40, left: -40, width: 180, height: 180, borderRadius: '50%', background: 'rgba(255,255,255,0.04)', pointerEvents: 'none' }} />
 
+      <Container maxWidth="lg">
         <Grid container spacing={3}>
-          {cards.map((card, idx) => (
-            <Grid item xs={6} md={3} key={card.label}>
+          {STATS.map((stat, i) => (
+            <Grid item xs={6} md={3} key={stat.label}>
               <motion.div
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
+                initial={{ opacity: 0, y: 30, scale: 0.9 }}
+                whileInView={{ opacity: 1, y: 0, scale: 1 }}
                 viewport={{ once: true }}
-                transition={{ delay: idx * 0.12, duration: 0.5 }}
-                whileHover={{ y: -6 }}
+                transition={{ duration: 0.5, delay: i * 0.1 }}
               >
-                <Box sx={{
-                    p: 3, textAlign: 'center', borderRadius: 4,
-                    background: 'rgba(255,255,255,0.04)',
-                    border: `1px solid ${card.color}33`,
-                    backdropFilter: 'blur(12px)',
-                    boxShadow: `0 8px 32px ${card.color}22`,
-                    transition: 'all 0.3s ease',
-                    '&:hover': { background: 'rgba(255,255,255,0.08)', boxShadow: `0 16px 48px ${card.color}44` },
+                <Box sx={{ textAlign: 'center', py: { xs: 2, md: 3 } }}>
+                  <Typography sx={{ fontSize: { xs: 28, md: 36 }, mb: 0.5 }}>{stat.icon}</Typography>
+                  <Typography variant="h3" fontWeight={900} sx={{
+                    color: '#fff', fontSize: { xs: '1.8rem', md: '2.5rem' },
+                    letterSpacing: '-0.04em', mb: 0.5,
                   }}>
-                  <Box sx={{
-                    width: 60, height: 60, borderRadius: 3, mx: 'auto', mb: 2,
-                    background: card.gradient,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 26, boxShadow: `0 8px 24px ${card.color}40`,
-                  }}>{card.icon}</Box>
-                  <Typography variant="h3" fontWeight={900}
-                    sx={{ color: card.color, fontSize: { xs: '1.8rem', md: '2.4rem' } }}
-                  >
-                    {loaded ? <AnimatedCounter target={card.value} suffix={card.suffix} /> : '—'}
+                    {stat.value}
                   </Typography>
-                  <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', mt: 0.5, fontWeight: 600 }}>
-                    {card.label}
+                  <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>
+                    {stat.label}
                   </Typography>
                 </Box>
               </motion.div>

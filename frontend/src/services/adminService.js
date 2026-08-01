@@ -120,3 +120,73 @@ export const processRefund = async (bookingId, amount, refundType, reason) => {
 
 // ── Platform Settings ──────────────────────────────────────────────────────
 // getAdminSettings and updateAdminSetting are declared above (lines ~84-91)
+
+// ── AI Insights ────────────────────────────────────────────────────────────
+export const getAIInsights = async () => {
+  const { data } = await api.get('/admin/ai-insights')
+  return data
+}
+
+// ── Broadcast ──────────────────────────────────────────────────────────────
+export const broadcastNotification = async ({ title, message, type = 'announcement', target = 'all' }) => {
+  const { data } = await api.post('/admin/broadcast', { title, message, type, target })
+  return data
+}
+
+// ── Ban ────────────────────────────────────────────────────────────────────
+export const banUser = async (targetId, targetType, reason, permanent = false) => {
+  const { data } = await api.post('/admin/ban', {
+    target_id: targetId,
+    target_type: targetType,
+    reason,
+    permanent,
+  })
+  return data
+}
+
+// ── Phase 17 BI Analytics ──────────────────────────────────────────────────
+
+export const getDailyRevenue = async () => {
+  const { data } = await api.get('/admin/analytics/daily-revenue')
+  return data
+}
+
+export const getYearlyRevenue = async () => {
+  const { data } = await api.get('/admin/analytics/yearly-revenue')
+  return data
+}
+
+export const getPeakHours = async () => {
+  const { data } = await api.get('/admin/analytics/peak-hours')
+  return data
+}
+
+export const getTopWorkers = async (limit = 10) => {
+  const { data } = await api.get('/admin/analytics/top-workers', { params: { limit } })
+  return data
+}
+
+export const getTopServices = async (limit = 10) => {
+  const { data } = await api.get('/admin/analytics/top-services', { params: { limit } })
+  return data
+}
+
+export const getCustomerGrowth = async () => {
+  const { data } = await api.get('/admin/analytics/customer-growth')
+  return data
+}
+
+export const getWorkerGrowth = async () => {
+  const { data } = await api.get('/admin/analytics/worker-growth')
+  return data
+}
+
+export const getComplaintAnalysis = async () => {
+  const { data } = await api.get('/admin/analytics/complaint-analysis')
+  return data
+}
+
+export const getAIForecast = async () => {
+  const { data } = await api.get('/admin/analytics/ai-forecast')
+  return data
+}

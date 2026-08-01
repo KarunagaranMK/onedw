@@ -1,18 +1,20 @@
 import { Box, Container, Typography, Grid, useTheme } from '@mui/material'
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
-import { SERVICE_CATEGORIES } from '../../utils/constants'
 
-const CATEGORY_GRADIENTS = [
-  'linear-gradient(135deg,#6C47FF,#9B72FF)',
-  'linear-gradient(135deg,#00D4AA,#00B894)',
-  'linear-gradient(135deg,#FF6B6B,#FF8E8E)',
-  'linear-gradient(135deg,#FFB800,#FFD54F)',
-  'linear-gradient(135deg,#3B82F6,#60A5FA)',
-  'linear-gradient(135deg,#EC4899,#F472B6)',
-  'linear-gradient(135deg,#8B5CF6,#A78BFA)',
-  'linear-gradient(135deg,#14B8A6,#2DD4BF)',
+const CATEGORIES = [
+  { icon: '⚡', label: 'Electrician', desc: 'Wiring, repairs, installation', color: '#f59e0b', bg: '#fef3c7' },
+  { icon: '🔧', label: 'Plumber', desc: 'Leaks, pipes, drainage', color: '#3b82f6', bg: '#dbeafe' },
+  { icon: '🎨', label: 'Painter', desc: 'Interior & exterior painting', color: '#ec4899', bg: '#fce7f3' },
+  { icon: '🧹', label: 'Cleaning', desc: 'Home & office cleaning', color: '#14b8a6', bg: '#ccfbf1' },
+  { icon: '🪚', label: 'Carpenter', desc: 'Furniture, doors, windows', color: '#d97706', bg: '#fef3c7' },
+  { icon: '❄️', label: 'AC Repair', desc: 'Service, gas refill, install', color: '#2563eb', bg: '#dbeafe' },
+  { icon: '🏠', label: 'Interior', desc: 'Design & renovation', color: '#7c3aed', bg: '#ede9fe' },
+  { icon: '🔒', label: 'Security', desc: 'CCTV, locks, alarms', color: '#059669', bg: '#d1fae5' },
 ]
+
+const container = { hidden: {}, show: { transition: { staggerChildren: 0.07 } } }
+const item = { hidden: { opacity: 0, y: 30 }, show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.4, 0, 0.2, 1] } } }
 
 export default function ServiceCategories() {
   const navigate = useNavigate()
@@ -20,93 +22,89 @@ export default function ServiceCategories() {
   const isDark = theme.palette.mode === 'dark'
 
   return (
-    <Box sx={{ py: { xs: 8, md: 10 }, bgcolor: 'background.default' }}>
+    <Box sx={{ py: { xs: 8, md: 12 }, background: isDark ? '#060612' : '#f8fafc' }}>
       <Container maxWidth="lg">
         {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
-        >
-          <Box sx={{ textAlign: 'center', mb: 6 }}>
-            <Box sx={{
-              display: 'inline-flex', alignItems: 'center', gap: 1, mb: 2,
-              px: 2, py: 0.6, borderRadius: 20,
-              bgcolor: 'rgba(108,71,255,0.08)',
-              border: '1px solid rgba(108,71,255,0.15)',
-            }}>
-              <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 700, letterSpacing: '0.08em' }}>
-                ALL SERVICES
-              </Typography>
-            </Box>
-            <Typography variant="h3" fontWeight={900} mb={1.5} sx={{ letterSpacing: '-0.02em' }}>
-              What are you looking for?
+        <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.5 }}>
+          <Box sx={{ textAlign: 'center', mb: { xs: 5, md: 8 } }}>
+            <Typography variant="overline" sx={{ color: '#2563eb', fontWeight: 700, letterSpacing: '0.1em', mb: 1, display: 'block' }}>
+              Our Services
             </Typography>
-            <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 480, mx: 'auto', lineHeight: 1.7 }}>
-              Choose from our most popular hyperlocal home services — all verified, all trusted.
+            <Typography variant="h3" fontWeight={900} mb={2} sx={{ letterSpacing: '-0.03em' }}>
+              What do you need{' '}
+              <Box component="span" sx={{ background: 'linear-gradient(135deg, #2563eb, #14b8a6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                help with?
+              </Box>
+            </Typography>
+            <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 480, mx: 'auto' }}>
+              Browse 50+ professional services. AI-matched to your location, budget, and availability.
             </Typography>
           </Box>
         </motion.div>
 
-        {/* Cards Grid */}
-        <Grid container spacing={{ xs: 2, md: 3 }}>
-          {SERVICE_CATEGORIES.map((cat, idx) => {
-            const Icon = cat.icon
-            const gradient = CATEGORY_GRADIENTS[idx % CATEGORY_GRADIENTS.length]
-            return (
-              <Grid item xs={6} sm={4} md={3} key={cat.id}>
-                <motion.div
-                  initial={{ opacity: 0, y: 30 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: idx * 0.06, duration: 0.4 }}
-                  whileHover={{ y: -8, scale: 1.02 }}
-                  whileTap={{ scale: 0.97 }}
-                >
-                  <Box
-                    onClick={() => navigate(`/workers?category=${cat.id}`)}
-                    sx={{
-                      p: 3, borderRadius: 4, textAlign: 'center',
-                      cursor: 'pointer',
-                      bgcolor: 'background.paper',
-                      border: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgba(108,71,255,0.08)'}`,
-                      boxShadow: isDark
-                        ? '0 4px 20px rgba(0,0,0,0.3)'
-                        : '0 4px 20px rgba(108,71,255,0.06)',
-                      transition: 'all 0.3s cubic-bezier(0.4,0,0.2,1)',
-                      '&:hover': {
-                        borderColor: 'rgba(108,71,255,0.3)',
-                        boxShadow: '0 16px 40px rgba(108,71,255,0.15)',
-                      },
-                    }}
-                  >
-                    {/* Gradient icon container */}
-                    <Box sx={{
-                      width: 64, height: 64, borderRadius: 3, mx: 'auto', mb: 2,
-                      background: gradient,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      boxShadow: `0 8px 24px rgba(108,71,255,0.2)`,
-                      transition: 'transform 0.3s ease',
-                      '&:hover': { transform: 'scale(1.1) rotate(5deg)' },
-                    }}>
-                      <Icon size={28} color="#fff" />
-                    </Box>
+        <motion.div variants={container} initial="hidden" whileInView="show" viewport={{ once: true }}>
+          <Grid container spacing={2.5}>
+            {CATEGORIES.map((cat) => (
+              <Grid item xs={6} sm={4} md={3} key={cat.label}>
+                <motion.div variants={item}>
+                  <motion.div whileHover={{ scale: 1.04, y: -4 }} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 350, damping: 20 }}>
+                    <Box
+                      onClick={() => navigate(`/workers?category=${cat.label}`)}
+                      sx={{
+                        p: 3, borderRadius: 4, cursor: 'pointer', textAlign: 'center',
+                        background: isDark ? 'rgba(255,255,255,0.04)' : '#fff',
+                        border: `1px solid ${isDark ? 'rgba(255,255,255,0.07)' : 'rgba(15,23,42,0.06)'}`,
+                        boxShadow: isDark ? 'none' : '0 4px 16px rgba(15,23,42,0.06)',
+                        transition: 'all 0.28s cubic-bezier(0.4,0,0.2,1)',
+                        '&:hover': {
+                          borderColor: cat.color + '60',
+                          boxShadow: `0 12px 32px ${cat.color}22`,
+                          background: isDark ? cat.bg + '15' : cat.bg + '55',
+                        },
+                        position: 'relative', overflow: 'hidden',
+                      }}
+                    >
+                      {/* Color accent top bar */}
+                      <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, ${cat.color}, transparent)`, opacity: 0.6 }} />
 
-                    <Typography variant="subtitle2" fontWeight={700} mb={0.5}>
-                      {cat.name}
-                    </Typography>
-                    {cat.count && (
-                      <Typography variant="caption" color="text.secondary">
-                        {cat.count}+ professionals
-                      </Typography>
-                    )}
-                  </Box>
+                      {/* Icon */}
+                      <Box sx={{
+                        width: 56, height: 56, borderRadius: 3, mx: 'auto', mb: 1.5,
+                        background: isDark ? cat.color + '20' : cat.bg,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 26,
+                        border: `1px solid ${cat.color}30`,
+                      }}>
+                        {cat.icon}
+                      </Box>
+                      <Typography variant="body2" fontWeight={800} mb={0.5}>{cat.label}</Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.4 }}>{cat.desc}</Typography>
+                    </Box>
+                  </motion.div>
                 </motion.div>
               </Grid>
-            )
-          })}
-        </Grid>
+            ))}
+          </Grid>
+        </motion.div>
+
+        {/* View all */}
+        <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ delay: 0.3 }}>
+          <Box sx={{ textAlign: 'center', mt: 5 }}>
+            <Box
+              onClick={() => navigate('/workers')}
+              sx={{
+                display: 'inline-flex', alignItems: 'center', gap: 1,
+                px: 3, py: 1.5, borderRadius: 3, cursor: 'pointer',
+                border: '1.5px solid rgba(37,99,235,0.3)', color: '#2563eb',
+                fontWeight: 700, fontSize: 14,
+                '&:hover': { background: 'rgba(37,99,235,0.06)', borderColor: '#2563eb' },
+                transition: 'all 0.2s',
+              }}
+            >
+              View All Services →
+            </Box>
+          </Box>
+        </motion.div>
       </Container>
     </Box>
   )

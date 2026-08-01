@@ -16,14 +16,17 @@ import {
   MdBarChart, MdSettings, MdPerson, MdBlock, MdDone,
   MdWarning, MdAdminPanelSettings, MdGroups, MdEqualizer,
   MdArrowUpward, MdArrowDownward, MdMoreVert, MdVisibility,
-  MdReply, MdSave, MdEdit,
+  MdReply, MdSave, MdEdit, MdAutoAwesome, MdSend, MdNotifications,
+  MdOutlineBarChart, MdPeopleAlt, MdVerifiedUser,
 } from 'react-icons/md'
 import {
   getDashboardStats, getAdminCustomers, getAdminWorkers,
   getAdminBookings, getAdminReviews, getAdminComplaints,
   approveWorker, rejectWorker, suspendWorker, blockCustomer,
   getBookingsPerMonth, getServicePopularity, getRevenueGrowth,
-  getAdminSettings, updateAdminSetting,
+  getAdminSettings, updateAdminSetting, getAIInsights, broadcastNotification,
+  getDailyRevenue, getYearlyRevenue, getPeakHours, getTopWorkers,
+  getTopServices, getCustomerGrowth, getWorkerGrowth, getComplaintAnalysis, getAIForecast,
 } from '../services/adminService'
 import { hideReview, deleteReview, replyToReview } from '../services/reviewService'
 import { updateComplaintStatus } from '../services/complaintService'
@@ -112,6 +115,20 @@ export default function AdminDashboard() {
   const [replyDialog, setReplyDialog] = useState({ open: false, reviewId: null, text: '' })
   // Settings edit state
   const [settingEdit, setSettingEdit] = useState({})
+  // AI Insights state
+  const [aiInsights, setAiInsights] = useState(null)
+  const [insightsLoading, setInsightsLoading] = useState(false)
+  // Broadcast state
+  const [broadcastForm, setBroadcastForm] = useState({ title: '', message: '', type: 'announcement', target: 'all' })
+  const [broadcastSending, setBroadcastSending] = useState(false)
+
+  // BI Dashboard state (Phase 17)
+  const [biData, setBiData] = useState({
+    daily: [], yearly: [], peakHours: [], topWorkers: [], topServices: [],
+    customerGrowth: [], workerGrowth: [], complaintAnalysis: null, aiForecast: null,
+  })
+  const [biLoading, setBiLoading] = useState(false)
+  const [aiForecastLoading, setAiForecastLoading] = useState(false)
 
   // Redirect non-admins
   useEffect(() => {
@@ -157,6 +174,32 @@ export default function AdminDashboard() {
           setPlatformSettings(s)
           setSettingEdit(s)
         }
+      // BI Dashboard tab (tab 10)
+      if (tab === 10) {
+        setBiLoading(true)
+        try {
+          const [daily, yearly, peakHours, topWorkers, topServices, customerGrowth, workerGrowth, complaintAnalysis] = await Promise.all([
+            getDailyRevenue().catch(() => []),
+            getYearlyRevenue().catch(() => []),
+            getPeakHours().catch(() => []),
+            getTopWorkers().catch(() => []),
+            getTopServices().catch(() => []),
+            getCustomerGrowth().catch(() => []),
+            getWorkerGrowth().catch(() => []),
+            getComplaintAnalysis().catch(() => null),
+          ])
+          setBiData(prev => ({ ...prev, daily, yearly, peakHours, topWorkers, topServices, customerGrowth, workerGrowth, complaintAnalysis }))
+        } finally { setBiLoading(false) }
+      }
+      if (tab === 8) {
+        setInsightsLoading(true)
+        try {
+          const data = await getAIInsights().catch(() => null)
+          setAiInsights(data)
+        } finally {
+          setInsightsLoading(false)
+        }
+      }
       } catch { /* silently fail */ }
       finally { setTabLoading(false) }
     }
@@ -217,6 +260,20 @@ export default function AdminDashboard() {
     } catch { showMsg('Save failed', 'error') }
   }
 
+  const handleBroadcast = async () => {
+    if (!broadcastForm.title.trim() || !broadcastForm.message.trim()) {
+      showMsg('Please enter a title and message.', 'error')
+      return
+    }
+    setBroadcastSending(true)
+    try {
+      const res = await broadcastNotification(broadcastForm)
+      showMsg(`✓ Broadcast sent to ${res.recipients_count ?? 'all'} users!`, 'success')
+      setBroadcastForm({ title: '', message: '', type: 'announcement', target: 'all' })
+    } catch { showMsg('Broadcast failed. Try again.', 'error') }
+    finally { setBroadcastSending(false) }
+  }
+
   const glassCard = {
     borderRadius: 3, p: 3,
     background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.9)',
@@ -245,7 +302,7 @@ export default function AdminDashboard() {
     { icon: MdReportProblem,label:'Open Complaints',value: stats?.complaints?.open ?? 0, sub: `${stats?.complaints?.critical ?? 0} critical`, color: '#FF6B35', gradient: 'linear-gradient(135deg,#FF6B35,#FF9A5C)', delay: 0.30 },
   ]
 
-  const TAB_LABELS = ['Overview', 'Customers', 'Workers', 'Bookings', 'Reviews', 'Complaints', 'Revenue', 'Settings']
+  const TAB_LABELS = ['Overview', 'Customers', 'Workers', 'Bookings', 'Reviews', 'Complaints', 'Revenue', 'Settings', 'AI Insights', 'Broadcast', '📊 BI Dashboard']
 
   return (
     <Box sx={{ minHeight: '100vh', background: isDark ? 'linear-gradient(135deg,#080812,#0D0D1A)' : 'linear-gradient(135deg,#F0EDFF,#FAFAFA)' }}>
@@ -805,6 +862,570 @@ export default function AdminDashboard() {
                 </Grid>
               </Box>
             )}
+
+            {/* ── AI Insights Tab ── */}
+            {tab === 8 && (
+              <Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
+                  <Box sx={{ width: 40, height: 40, borderRadius: 2, background: 'linear-gradient(135deg,#6C47FF,#9B72FF)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <MdAutoAwesome color="#fff" size={20} />
+                  </Box>
+                  <Box>
+                    <Typography variant="h6" fontWeight={800}>AI Platform Telemetry</Typography>
+                    <Typography variant="body2" color="text.secondary">Real-time AI-generated insights from platform activity</Typography>
+                  </Box>
+                </Box>
+
+                {insightsLoading ? (
+                  <Box sx={{ textAlign: 'center', py: 6 }}>
+                    <CircularProgress size={40} />
+                    <Typography color="text.secondary" mt={2}>Generating AI insights…</Typography>
+                  </Box>
+                ) : !aiInsights ? (
+                  <Alert severity="info" sx={{ borderRadius: 2 }}>No insights data available yet. Insights appear as bookings and reviews accumulate.</Alert>
+                ) : (
+                  <Grid container spacing={3}>
+                    {/* CSAT Score */}
+                    <Grid item xs={12} md={4}>
+                      <Paper sx={{ ...glassCard, textAlign: 'center' }}>
+                        <Typography variant="caption" color="text.secondary" fontWeight={700} textTransform="uppercase" letterSpacing={1}>CSAT Score</Typography>
+                        <Typography variant="h2" fontWeight={900} sx={{ color: '#22C55E', my: 1 }}>
+                          {aiInsights.csat?.satisfaction_score ?? 0}%
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {aiInsights.csat?.average_rating ?? 0}★ avg from {aiInsights.csat?.total_reviews ?? 0} reviews
+                        </Typography>
+                        <LinearProgress
+                          variant="determinate"
+                          value={aiInsights.csat?.satisfaction_score ?? 0}
+                          sx={{ mt: 2, height: 8, borderRadius: 4, bgcolor: 'rgba(34,197,94,0.15)', '& .MuiLinearProgress-bar': { background: 'linear-gradient(90deg,#22C55E,#4ADE80)' } }}
+                        />
+                      </Paper>
+                    </Grid>
+
+                    {/* Cancellation Rate */}
+                    <Grid item xs={12} md={4}>
+                      <Paper sx={{ ...glassCard, textAlign: 'center' }}>
+                        <Typography variant="caption" color="text.secondary" fontWeight={700} textTransform="uppercase" letterSpacing={1}>Cancellation Rate</Typography>
+                        <Typography variant="h2" fontWeight={900} sx={{ color: aiInsights.cancellation_rate > 20 ? '#EF4444' : '#FFB800', my: 1 }}>
+                          {aiInsights.cancellation_rate ?? 0}%
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {aiInsights.cancellation_rate > 20 ? '⚠️ High — investigate causes' : '✓ Within acceptable range'}
+                        </Typography>
+                      </Paper>
+                    </Grid>
+
+                    {/* Demand Forecast */}
+                    <Grid item xs={12} md={4}>
+                      <Paper sx={{ ...glassCard }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                          <MdOutlineBarChart color="#6C47FF" size={20} />
+                          <Typography variant="subtitle2" fontWeight={800}>Demand Forecast</Typography>
+                        </Box>
+                        <Typography variant="body2" color="text.secondary" mb={1.5}>
+                          {aiInsights.demand_forecast?.note}
+                        </Typography>
+                        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                          {(aiInsights.demand_forecast?.peak_days || []).map(d => (
+                            <Chip key={d} label={d} size="small" sx={{ bgcolor: 'rgba(108,71,255,0.12)', color: '#6C47FF', fontWeight: 700 }} />
+                          ))}
+                          {(aiInsights.demand_forecast?.peak_hours || []).map(h => (
+                            <Chip key={h} label={h} size="small" sx={{ bgcolor: 'rgba(255,184,0,0.12)', color: '#D97706', fontWeight: 700 }} />
+                          ))}
+                        </Box>
+                      </Paper>
+                    </Grid>
+
+                    {/* Top Complaint Categories */}
+                    <Grid item xs={12} md={6}>
+                      <Paper sx={{ ...glassCard }}>
+                        <Typography variant="subtitle2" fontWeight={800} mb={2}>🔥 Top Complaint Categories</Typography>
+                        {(aiInsights.top_complaint_categories || []).length === 0 ? (
+                          <Typography color="text.secondary" variant="body2">No complaints yet — great work!</Typography>
+                        ) : (
+                          (aiInsights.top_complaint_categories || []).map((item, i) => (
+                            <Box key={i} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+                              <Typography variant="body2" fontWeight={600}>{item.category}</Typography>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1, mx: 2 }}>
+                                <LinearProgress
+                                  variant="determinate"
+                                  value={Math.min((item.count / Math.max(...(aiInsights.top_complaint_categories || []).map(x => x.count), 1)) * 100, 100)}
+                                  sx={{ flex: 1, height: 6, borderRadius: 3, bgcolor: 'rgba(239,68,68,0.1)', '& .MuiLinearProgress-bar': { bgcolor: '#EF4444' } }}
+                                />
+                              </Box>
+                              <Chip label={item.count} size="small" sx={{ bgcolor: 'rgba(239,68,68,0.1)', color: '#EF4444', fontWeight: 700, minWidth: 40 }} />
+                            </Box>
+                          ))
+                        )}
+                      </Paper>
+                    </Grid>
+
+                    {/* Most Booked Services */}
+                    <Grid item xs={12} md={6}>
+                      <Paper sx={{ ...glassCard }}>
+                        <Typography variant="subtitle2" fontWeight={800} mb={2}>📊 Most Booked Services</Typography>
+                        {(aiInsights.most_booked_services || []).length === 0 ? (
+                          <Typography color="text.secondary" variant="body2">No booking data yet.</Typography>
+                        ) : (
+                          (aiInsights.most_booked_services || []).map((item, i) => (
+                            <Box key={i} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+                              <Typography variant="body2" fontWeight={600}>{item.service}</Typography>
+                              <Box sx={{ flex: 1, mx: 2 }}>
+                                <LinearProgress
+                                  variant="determinate"
+                                  value={Math.min((item.count / Math.max(...(aiInsights.most_booked_services || []).map(x => x.count), 1)) * 100, 100)}
+                                  sx={{ height: 6, borderRadius: 3, bgcolor: 'rgba(108,71,255,0.1)', '& .MuiLinearProgress-bar': { bgcolor: '#6C47FF' } }}
+                                />
+                              </Box>
+                              <Chip label={item.count} size="small" sx={{ bgcolor: 'rgba(108,71,255,0.1)', color: '#6C47FF', fontWeight: 700, minWidth: 40 }} />
+                            </Box>
+                          ))
+                        )}
+                      </Paper>
+                    </Grid>
+
+                    {/* Top Workers */}
+                    <Grid item xs={12}>
+                      <Paper sx={{ ...glassCard }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                          <MdVerifiedUser color="#22C55E" size={20} />
+                          <Typography variant="subtitle2" fontWeight={800}>🏆 Top Rated Workers</Typography>
+                        </Box>
+                        {(aiInsights.top_workers || []).length === 0 ? (
+                          <Typography color="text.secondary" variant="body2">No worker data available yet.</Typography>
+                        ) : (
+                          <Grid container spacing={2}>
+                            {(aiInsights.top_workers || []).map((w, i) => (
+                              <Grid item xs={12} sm={6} md={4} key={i}>
+                                <Box sx={{ p: 2, borderRadius: 2, bgcolor: isDark ? 'rgba(255,255,255,0.04)' : '#f9fafb', border: '1px solid rgba(34,197,94,0.2)' }}>
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                    <Avatar sx={{ width: 40, height: 40, background: COLORS[i % COLORS.length] + '33', color: COLORS[i % COLORS.length], fontWeight: 800 }}>
+                                      {i + 1}
+                                    </Avatar>
+                                    <Box>
+                                      <Typography variant="body2" fontWeight={700}>{w.name || 'Worker'}</Typography>
+                                      <Typography variant="caption" color="text.secondary">{w.service}</Typography>
+                                    </Box>
+                                    <Box sx={{ ml: 'auto', textAlign: 'right' }}>
+                                      <Typography variant="body2" fontWeight={800} sx={{ color: '#FFB800' }}>⭐ {w.rating?.toFixed(1) ?? 0}</Typography>
+                                      <Typography variant="caption" color="text.secondary">{w.jobs} jobs</Typography>
+                                    </Box>
+                                  </Box>
+                                </Box>
+                              </Grid>
+                            ))}
+                          </Grid>
+                        )}
+                      </Paper>
+                    </Grid>
+                  </Grid>
+                )}
+              </Box>
+            )}
+
+            {/* ── Broadcast Center Tab ── */}
+            {tab === 9 && (
+              <Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
+                  <Box sx={{ width: 40, height: 40, borderRadius: 2, background: 'linear-gradient(135deg,#3B82F6,#60A5FA)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <MdNotifications color="#fff" size={20} />
+                  </Box>
+                  <Box>
+                    <Typography variant="h6" fontWeight={800}>Notification Broadcast Center</Typography>
+                    <Typography variant="body2" color="text.secondary">Send announcements, alerts, or maintenance notices to all users</Typography>
+                  </Box>
+                </Box>
+
+                <Grid container spacing={3}>
+                  <Grid item xs={12} md={7}>
+                    <Paper sx={{ ...glassCard }}>
+                      <Typography variant="subtitle2" fontWeight={800} mb={2}>📢 Compose Broadcast</Typography>
+
+                      <TextField
+                        fullWidth label="Notification Title" placeholder="e.g. Platform Maintenance Tonight"
+                        value={broadcastForm.title}
+                        onChange={e => setBroadcastForm(f => ({ ...f, title: e.target.value }))}
+                        sx={{ mb: 2, '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                      />
+
+                      <TextField
+                        fullWidth multiline rows={5} label="Message"
+                        placeholder="Write your notification message here…"
+                        value={broadcastForm.message}
+                        onChange={e => setBroadcastForm(f => ({ ...f, message: e.target.value }))}
+                        sx={{ mb: 2, '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                      />
+
+                      <Grid container spacing={2} mb={2}>
+                        <Grid item xs={6}>
+                          <FormControl fullWidth size="small">
+                            <InputLabel>Type</InputLabel>
+                            <Select value={broadcastForm.type} label="Type"
+                              onChange={e => setBroadcastForm(f => ({ ...f, type: e.target.value }))}
+                              sx={{ borderRadius: 2 }}
+                            >
+                              <MenuItem value="announcement">📢 Announcement</MenuItem>
+                              <MenuItem value="maintenance">🔧 Maintenance</MenuItem>
+                              <MenuItem value="emergency">🚨 Emergency</MenuItem>
+                              <MenuItem value="promotion">🎁 Promotion</MenuItem>
+                            </Select>
+                          </FormControl>
+                        </Grid>
+                        <Grid item xs={6}>
+                          <FormControl fullWidth size="small">
+                            <InputLabel>Target Audience</InputLabel>
+                            <Select value={broadcastForm.target} label="Target Audience"
+                              onChange={e => setBroadcastForm(f => ({ ...f, target: e.target.value }))}
+                              sx={{ borderRadius: 2 }}
+                            >
+                              <MenuItem value="all">👥 All Users</MenuItem>
+                              <MenuItem value="customers">🧑 Customers Only</MenuItem>
+                              <MenuItem value="workers">👷 Workers Only</MenuItem>
+                            </Select>
+                          </FormControl>
+                        </Grid>
+                      </Grid>
+
+                      <Button
+                        fullWidth variant="contained" size="large"
+                        onClick={handleBroadcast}
+                        disabled={broadcastSending || !broadcastForm.title.trim() || !broadcastForm.message.trim()}
+                        startIcon={broadcastSending ? <CircularProgress size={18} color="inherit" /> : <MdSend />}
+                        sx={{
+                          py: 1.5, fontWeight: 800, borderRadius: 2.5,
+                          background: 'linear-gradient(135deg,#3B82F6,#60A5FA)',
+                          '&:hover': { background: 'linear-gradient(135deg,#2563EB,#3B82F6)' }
+                        }}
+                      >
+                        {broadcastSending ? 'Sending…' : '📨 Send Broadcast'}
+                      </Button>
+                    </Paper>
+                  </Grid>
+
+                  <Grid item xs={12} md={5}>
+                    <Paper sx={{ ...glassCard }}>
+                      <Typography variant="subtitle2" fontWeight={800} mb={2}>📋 Broadcast Guidelines</Typography>
+                      {[
+                        { icon: '✅', title: 'Announcements', desc: 'Platform updates, new features, policy changes' },
+                        { icon: '🔧', title: 'Maintenance', desc: 'Scheduled downtime or service interruptions' },
+                        { icon: '🚨', title: 'Emergency', desc: 'Critical alerts — use sparingly' },
+                        { icon: '🎁', title: 'Promotions', desc: 'Special offers, cashback events, seasonal deals' },
+                      ].map((item) => (
+                        <Box key={item.title} sx={{ display: 'flex', gap: 1.5, mb: 2 }}>
+                          <Typography fontSize={20}>{item.icon}</Typography>
+                          <Box>
+                            <Typography variant="body2" fontWeight={700}>{item.title}</Typography>
+                            <Typography variant="caption" color="text.secondary">{item.desc}</Typography>
+                          </Box>
+                        </Box>
+                      ))}
+                    </Paper>
+
+                    <Paper sx={{ ...glassCard, mt: 2 }}>
+                      <Typography variant="subtitle2" fontWeight={800} mb={1.5}>Preview</Typography>
+                      {broadcastForm.title ? (
+                        <Box sx={{ p: 2, borderRadius: 2, bgcolor: isDark ? 'rgba(59,130,246,0.1)' : '#EFF6FF', border: '1px solid rgba(59,130,246,0.2)' }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                            <MdNotifications size={16} color="#3B82F6" />
+                            <Typography variant="body2" fontWeight={800} sx={{ color: '#3B82F6' }}>{broadcastForm.title}</Typography>
+                          </Box>
+                          <Typography variant="body2" color="text.secondary">
+                            {broadcastForm.message || 'Your message will appear here…'}
+                          </Typography>
+                          <Box sx={{ mt: 1, display: 'flex', gap: 0.75 }}>
+                            <Chip label={broadcastForm.type} size="small" sx={{ bgcolor: 'rgba(59,130,246,0.15)', color: '#3B82F6', fontWeight: 700, fontSize: 10 }} />
+                            <Chip label={`→ ${broadcastForm.target}`} size="small" sx={{ bgcolor: 'rgba(108,71,255,0.1)', color: '#6C47FF', fontWeight: 700, fontSize: 10 }} />
+                          </Box>
+                        </Box>
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">Fill in the form to preview your broadcast.</Typography>
+                      )}
+                    </Paper>
+                  </Grid>
+                </Grid>
+              </Box>
+            )}
+
+            {/* ── BI Dashboard Tab (Phase 17) ── */}
+            {tab === 10 && (
+              <Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+                  <Box>
+                    <Typography variant="h6" fontWeight={900}>📊 Business Intelligence Dashboard</Typography>
+                    <Typography variant="body2" color="text.secondary">Real-time analytics from MongoDB — Phase 17</Typography>
+                  </Box>
+                  <Button
+                    variant="contained"
+                    size="small"
+                    startIcon={aiForecastLoading ? <CircularProgress size={14} color="inherit" /> : <MdAutoAwesome size={16} />}
+                    disabled={aiForecastLoading}
+                    onClick={async () => {
+                      setAiForecastLoading(true)
+                      try {
+                        const forecast = await getAIForecast().catch(() => null)
+                        setBiData(prev => ({ ...prev, aiForecast: forecast }))
+                      } finally { setAiForecastLoading(false) }
+                    }}
+                    sx={{ borderRadius: 2.5, fontWeight: 700, background: 'linear-gradient(135deg,#6C47FF,#9B72FF)', fontSize: 12 }}
+                  >
+                    {aiForecastLoading ? 'Generating…' : 'AI Forecast'}
+                  </Button>
+                </Box>
+
+                {biLoading && <LinearProgress sx={{ mb: 2, borderRadius: 1 }} />}
+
+                {/* AI Forecast Panel */}
+                {biData.aiForecast && (
+                  <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+                    <Paper sx={{ p: 3, borderRadius: 3, mb: 3, background: isDark ? 'rgba(108,71,255,0.1)' : 'rgba(108,71,255,0.06)', border: '1px solid rgba(108,71,255,0.2)' }}>
+                      <Typography variant="subtitle1" fontWeight={900} color="primary" mb={2}>
+                        <MdAutoAwesome size={18} style={{ marginRight: 8, verticalAlign: 'middle' }} />
+                        AI Business Intelligence Report
+                        {biData.aiForecast.fallback && <Chip label="Fallback" size="small" sx={{ ml: 1, fontSize: 9 }} />}
+                      </Typography>
+                      <Grid container spacing={2}>
+                        {/* Revenue Forecast */}
+                        <Grid item xs={12} sm={6} md={3}>
+                          <Paper sx={{ p: 2, borderRadius: 2, textAlign: 'center', border: '1px solid rgba(108,71,255,0.15)' }}>
+                            <Typography variant="caption" fontWeight={700} color="text.secondary" display="block">Revenue Forecast</Typography>
+                            <Typography variant="h6" fontWeight={900} color="primary">
+                              ₹{(biData.aiForecast.revenue_forecast?.next_month_prediction || 0).toLocaleString('en-IN')}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">Next Month</Typography>
+                            <Chip label={biData.aiForecast.revenue_forecast?.trend || 'stable'} size="small"
+                              sx={{ mt: 1, display: 'block', mx: 'auto', width: 'fit-content', fontWeight: 700,
+                                bgcolor: biData.aiForecast.revenue_forecast?.trend === 'growing' ? '#10B98122' : '#FFB80022',
+                                color: biData.aiForecast.revenue_forecast?.trend === 'growing' ? '#10B981' : '#FFB800' }} />
+                          </Paper>
+                        </Grid>
+                        {/* Health Score */}
+                        <Grid item xs={12} sm={6} md={3}>
+                          <Paper sx={{ p: 2, borderRadius: 2, textAlign: 'center', border: '1px solid rgba(108,71,255,0.15)' }}>
+                            <Typography variant="caption" fontWeight={700} color="text.secondary" display="block">Business Health</Typography>
+                            <Typography variant="h3" fontWeight={900} sx={{ color: '#22C55E' }}>
+                              {biData.aiForecast.business_health?.score || 0}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">/ 100</Typography>
+                            <Chip label={biData.aiForecast.business_health?.status || 'Good'} size="small"
+                              sx={{ mt: 1, display: 'block', mx: 'auto', width: 'fit-content', fontWeight: 700, bgcolor: '#22C55E22', color: '#22C55E' }} />
+                          </Paper>
+                        </Grid>
+                        {/* Demand Forecast */}
+                        <Grid item xs={12} sm={6} md={3}>
+                          <Paper sx={{ p: 2, borderRadius: 2, border: '1px solid rgba(108,71,255,0.15)' }}>
+                            <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" mb={0.5}>Peak Demand</Typography>
+                            <Typography variant="caption" fontWeight={600}>{biData.aiForecast.demand_forecast?.peak_hours}</Typography>
+                            <Box sx={{ mt: 0.5 }}>
+                              {(biData.aiForecast.demand_forecast?.peak_services || []).map(s => (
+                                <Chip key={s} label={s} size="small" sx={{ mr: 0.5, mt: 0.5, fontSize: 9, fontWeight: 700, bgcolor: '#3B82F622', color: '#3B82F6' }} />
+                              ))}
+                            </Box>
+                          </Paper>
+                        </Grid>
+                        {/* Action Items */}
+                        <Grid item xs={12} sm={6} md={3}>
+                          <Paper sx={{ p: 2, borderRadius: 2, border: '1px solid rgba(108,71,255,0.15)' }}>
+                            <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" mb={0.5}>Action Items</Typography>
+                            {(biData.aiForecast.business_health?.action_items || []).map((item, i) => (
+                              <Typography key={i} variant="caption" display="block" sx={{ fontSize: 10, mb: 0.5 }}>
+                                {i + 1}. {item}
+                              </Typography>
+                            ))}
+                          </Paper>
+                        </Grid>
+                      </Grid>
+                      <Typography variant="caption" color="text.secondary" mt={1} display="block">
+                        {biData.aiForecast.revenue_forecast?.insight}
+                      </Typography>
+                    </Paper>
+                  </motion.div>
+                )}
+
+                <Grid container spacing={3}>
+                  {/* Daily Revenue */}
+                  <Grid item xs={12} md={8}>
+                    <Paper sx={{ p: 2.5, borderRadius: 3 }}>
+                      <Typography variant="subtitle1" fontWeight={800} mb={2}>Daily Revenue (Last 30 Days)</Typography>
+                      <ResponsiveContainer width="100%" height={220}>
+                        <AreaChart data={biData.daily} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                          <defs>
+                            <linearGradient id="dailyGrad" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#6C47FF" stopOpacity={0.3} />
+                              <stop offset="95%" stopColor="#6C47FF" stopOpacity={0} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} />
+                          <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={d => d?.slice(5)} />
+                          <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `₹${v}`} />
+                          <RTooltip formatter={(v) => [`₹${v.toFixed(2)}`, 'Revenue']} contentStyle={{ borderRadius: 8, fontSize: 12 }} />
+                          <Area type="monotone" dataKey="revenue" stroke="#6C47FF" strokeWidth={2.5} fill="url(#dailyGrad)" name="Revenue" />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </Paper>
+                  </Grid>
+
+                  {/* Peak Hours */}
+                  <Grid item xs={12} md={4}>
+                    <Paper sx={{ p: 2.5, borderRadius: 3 }}>
+                      <Typography variant="subtitle1" fontWeight={800} mb={2}>Peak Hours</Typography>
+                      <ResponsiveContainer width="100%" height={220}>
+                        <BarChart data={biData.peakHours.filter(h => h.bookings > 0)} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} />
+                          <XAxis dataKey="label" tick={{ fontSize: 9 }} />
+                          <YAxis tick={{ fontSize: 10 }} />
+                          <RTooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} />
+                          <Bar dataKey="bookings" fill="#FFB800" radius={[4, 4, 0, 0]} name="Bookings" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </Paper>
+                  </Grid>
+
+                  {/* Monthly Revenue */}
+                  <Grid item xs={12} md={6}>
+                    <Paper sx={{ p: 2.5, borderRadius: 3 }}>
+                      <Typography variant="subtitle1" fontWeight={800} mb={2}>Monthly Revenue</Typography>
+                      <ResponsiveContainer width="100%" height={220}>
+                        <BarChart data={revenueData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} />
+                          <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                          <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `₹${v}`} />
+                          <RTooltip formatter={(v) => [`₹${v.toFixed(2)}`, 'Revenue']} contentStyle={{ borderRadius: 8, fontSize: 12 }} />
+                          <Legend />
+                          <Bar dataKey="revenue" fill="#3B82F6" radius={[4, 4, 0, 0]} name="Revenue" />
+                          <Bar dataKey="commission" fill="#6C47FF" radius={[4, 4, 0, 0]} name="Commission" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </Paper>
+                  </Grid>
+
+                  {/* Yearly Revenue */}
+                  <Grid item xs={12} md={6}>
+                    <Paper sx={{ p: 2.5, borderRadius: 3 }}>
+                      <Typography variant="subtitle1" fontWeight={800} mb={2}>Yearly Revenue</Typography>
+                      <ResponsiveContainer width="100%" height={220}>
+                        <LineChart data={biData.yearly} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} />
+                          <XAxis dataKey="year" tick={{ fontSize: 11 }} />
+                          <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `₹${v}`} />
+                          <RTooltip formatter={(v) => [`₹${v.toFixed(2)}`, 'Revenue']} contentStyle={{ borderRadius: 8, fontSize: 12 }} />
+                          <Legend />
+                          <Line type="monotone" dataKey="revenue" stroke="#10B981" strokeWidth={2.5} dot={{ fill: '#10B981', r: 4 }} name="Revenue" />
+                          <Line type="monotone" dataKey="profit" stroke="#6C47FF" strokeWidth={2} strokeDasharray="5 5" dot={{ fill: '#6C47FF', r: 3 }} name="Profit" />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </Paper>
+                  </Grid>
+
+                  {/* Customer Growth */}
+                  <Grid item xs={12} md={6}>
+                    <Paper sx={{ p: 2.5, borderRadius: 3 }}>
+                      <Typography variant="subtitle1" fontWeight={800} mb={2}>Customer Growth</Typography>
+                      <ResponsiveContainer width="100%" height={200}>
+                        <AreaChart data={biData.customerGrowth} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                          <defs>
+                            <linearGradient id="custGrad" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#10B981" stopOpacity={0.3} />
+                              <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} />
+                          <XAxis dataKey="month" tick={{ fontSize: 10 }} />
+                          <YAxis tick={{ fontSize: 10 }} />
+                          <RTooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} />
+                          <Area type="monotone" dataKey="count" stroke="#10B981" strokeWidth={2.5} fill="url(#custGrad)" name="New Customers" />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </Paper>
+                  </Grid>
+
+                  {/* Worker Growth */}
+                  <Grid item xs={12} md={6}>
+                    <Paper sx={{ p: 2.5, borderRadius: 3 }}>
+                      <Typography variant="subtitle1" fontWeight={800} mb={2}>Worker Growth</Typography>
+                      <ResponsiveContainer width="100%" height={200}>
+                        <LineChart data={biData.workerGrowth} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} />
+                          <XAxis dataKey="month" tick={{ fontSize: 10 }} />
+                          <YAxis tick={{ fontSize: 10 }} />
+                          <RTooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} />
+                          <Line type="monotone" dataKey="count" stroke="#FFB800" strokeWidth={2.5} dot={{ fill: '#FFB800', r: 4 }} name="New Workers" />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </Paper>
+                  </Grid>
+
+                  {/* Top Workers */}
+                  <Grid item xs={12} md={7}>
+                    <Paper sx={{ p: 2.5, borderRadius: 3 }}>
+                      <Typography variant="subtitle1" fontWeight={800} mb={2}>Top Workers by Completed Bookings</Typography>
+                      <ResponsiveContainer width="100%" height={240}>
+                        <BarChart data={biData.topWorkers.slice(0, 8)} layout="vertical" margin={{ top: 5, right: 20, left: 60, bottom: 5 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} />
+                          <XAxis type="number" tick={{ fontSize: 10 }} />
+                          <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={60} />
+                          <RTooltip formatter={(v, n, p) => [v, n]} contentStyle={{ borderRadius: 8, fontSize: 12 }} />
+                          <Bar dataKey="bookings" fill="#6C47FF" radius={[0, 4, 4, 0]} name="Completed Bookings">
+                            {biData.topWorkers.slice(0, 8).map((_, i) => (
+                              <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </Paper>
+                  </Grid>
+
+                  {/* Complaint Analysis */}
+                  <Grid item xs={12} md={5}>
+                    <Paper sx={{ p: 2.5, borderRadius: 3 }}>
+                      <Typography variant="subtitle1" fontWeight={800} mb={2}>Complaint Analysis</Typography>
+                      {biData.complaintAnalysis ? (
+                        <ResponsiveContainer width="100%" height={240}>
+                          <PieChart>
+                            <Pie
+                              data={biData.complaintAnalysis.by_category}
+                              dataKey="count" nameKey="category"
+                              cx="50%" cy="50%" outerRadius={80} paddingAngle={3}
+                              label={({ category, percent }) => `${category?.split(' ')[0]} ${(percent * 100).toFixed(0)}%`}
+                              labelLine={false}
+                            >
+                              {(biData.complaintAnalysis.by_category || []).map((_, i) => (
+                                <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                              ))}
+                            </Pie>
+                            <RTooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <Box sx={{ height: 240, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <Typography color="text.secondary">No complaint data</Typography>
+                        </Box>
+                      )}
+                    </Paper>
+                  </Grid>
+
+                  {/* Top Services */}
+                  <Grid item xs={12}>
+                    <Paper sx={{ p: 2.5, borderRadius: 3 }}>
+                      <Typography variant="subtitle1" fontWeight={800} mb={2}>Top Services by Bookings & Revenue</Typography>
+                      <ResponsiveContainer width="100%" height={220}>
+                        <BarChart data={biData.topServices.slice(0, 8)} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} />
+                          <XAxis dataKey="service" tick={{ fontSize: 10 }} />
+                          <YAxis yAxisId="left" tick={{ fontSize: 10 }} />
+                          <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10 }} tickFormatter={v => `₹${v}`} />
+                          <RTooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} />
+                          <Legend />
+                          <Bar yAxisId="left" dataKey="bookings" fill="#3B82F6" radius={[4, 4, 0, 0]} name="Bookings" />
+                          <Bar yAxisId="right" dataKey="revenue" fill="#10B981" radius={[4, 4, 0, 0]} name="Revenue (₹)" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </Paper>
+                  </Grid>
+                </Grid>
+              </Box>
+            )}
+
           </Box>
         </Paper>
       </Container>

@@ -190,14 +190,23 @@ class InMemoryCollection:
                     document[key] = []
                 document[key].append(value)
 
+            # $setOnInsert is ignored on updates (only applies on inserts)
             updated = True
             break
 
         if not updated and upsert:
             new_doc = {**query}
-            new_doc["_id"] = ObjectId()
+            new_doc["_id"] = new_doc.get("_id", ObjectId())
+            # Apply $set
             for key, value in update.get("$set", {}).items():
                 new_doc[key] = value
+            # Apply $inc on insert
+            for key, delta in update.get("$inc", {}).items():
+                new_doc[key] = new_doc.get(key, 0) + delta
+            # Apply $setOnInsert on insert
+            for key, value in update.get("$setOnInsert", {}).items():
+                if key != "_id":
+                    new_doc[key] = value
             self._documents.append(new_doc)
 
         return MemoryUpdateResult(matched_count=1 if updated else 0, modified_count=1 if updated else 0)
@@ -340,7 +349,29 @@ class InMemoryDatabase:
         self.warnings = InMemoryCollection()
         self.platform_settings = InMemoryCollection()
         self.refunds = InMemoryCollection()
-
+        # Wallet system
+        self.wallets = InMemoryCollection()
+        self.wallet_transactions = InMemoryCollection()
+        self.promo_codes = InMemoryCollection()
+        self.promo_code_usages = InMemoryCollection()
+        # Admin extended
+        self.broadcasts = InMemoryCollection()
+        self.bans = InMemoryCollection()
+        # Chat & Video
+        self.chat_sessions = InMemoryCollection()
+        self.chat_messages = InMemoryCollection()
+        self.chat_typing = InMemoryCollection()
+        self.video_sessions = InMemoryCollection()
+        self.chat_notifications = InMemoryCollection()
+        # Wallet extended
+        self.coupons = InMemoryCollection()
+        self.referrals = InMemoryCollection()
+        self.cashbacks = InMemoryCollection()
+        self.reward_points = InMemoryCollection()
+        # Loyalty (Phase 18)
+        self.loyalty = InMemoryCollection()
+        self.loyalty_redemptions = InMemoryCollection()
+        self.loyalty_leaderboard = InMemoryCollection()
 
 
 class MongoDB:
@@ -418,6 +449,42 @@ async def connect_to_mongo() -> None:
     except Exception as seed_err:
         logger.warning("Demo seed failed: %s", seed_err)
 
+    # Seed admin user into in-memory DB
+    try:
+        from app.utils.security import hash_password
+        from datetime import datetime, timezone
+        now = datetime.now(timezone.utc)
+        admin_exists = await mongodb.db.users.find_one({"role": "admin"})
+        if not admin_exists:
+            await mongodb.db.users.insert_one({
+                "name": "OneDW Admin",
+                "email": "admin@onedw.in",
+                "phone": "+911234567890",
+                "password": hash_password("Admin@123"),
+                "role": "admin",
+                "is_active": True,
+                "is_blocked": False,
+                "created_at": now,
+                "updated_at": now,
+            })
+            logger.info("✓ Admin user seeded into in-memory DB: admin@onedw.in / Admin@123")
+
+        # Seed promo codes into in-memory DB
+        DEFAULT_PROMOS = [
+            {"code": "WELCOME10", "discount_type": "percent", "discount_value": 10, "max_discount": 100, "is_active": True, "max_uses_per_user": 1},
+            {"code": "ONEDW20",   "discount_type": "percent", "discount_value": 20, "max_discount": 200, "is_active": True, "max_uses_per_user": 1},
+            {"code": "SAVE50",    "discount_type": "flat",    "discount_value": 50,  "max_discount": 50,  "is_active": True, "max_uses_per_user": 1},
+            {"code": "FIRST100",  "discount_type": "flat",    "discount_value": 100, "max_discount": 100, "is_active": True, "max_uses_per_user": 1},
+            {"code": "REFER25",   "discount_type": "percent", "discount_value": 25,  "max_discount": 150, "is_active": True, "max_uses_per_user": 1},
+        ]
+        for promo in DEFAULT_PROMOS:
+            exists = await mongodb.db.coupons.find_one({"code": promo["code"]})
+            if not exists:
+                await mongodb.db.coupons.insert_one({**promo, "created_at": now})
+        logger.info("✓ Promo codes seeded into in-memory DB")
+    except Exception as e:
+        logger.warning("In-memory seed (admin/promos) failed: %s", e)
+
 
 async def close_mongo_connection() -> None:
     """Gracefully close the MongoDB connection. Called on app shutdown."""
@@ -446,11 +513,11 @@ async def check_db_health() -> bool:
         return False
 
 
-def get_database() -> AsyncIOMotorDatabase | InMemoryDatabase:
-    """Dependency-injectable accessor for the database instance."""
+async def get_database():
+    """Async generator yielding the database instance. FastAPI Depends-compatible."""
     if mongodb.db is None:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Database is unavailable. Check MongoDB settings and connectivity.",
         )
-    return mongodb.db
+    yield mongodb.db

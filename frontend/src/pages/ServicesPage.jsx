@@ -1,137 +1,135 @@
-import { Container, Typography, Grid, Paper, Box, Button } from '@mui/material'
+import { Box, Container, Typography, Grid, Paper, useTheme, Chip } from '@mui/material'
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
-import { MdElectricBolt, MdPlumbing, MdCarpenter, MdFormatPaint, MdCleaningServices, MdAcUnit, MdBuild, MdSpa } from 'react-icons/md'
+import { MdElectricBolt, MdPlumbing, MdBrush, MdCleaningServices, MdConstruction, MdAcUnit, MdDesignServices, MdSecurity, MdBuild, MdHome } from 'react-icons/md'
 
-const SERVICES_LIST = [
-  { icon: MdElectricBolt, name: 'Electrician', desc: 'Wiring, panel upgrades, fan/light installation, short circuit fixes.', color: '#f59e0b', id: 'electrician' },
-  { icon: MdPlumbing, name: 'Plumber', desc: 'Pipe repair, leak fixing, bathroom fittings, water heater installation.', color: '#0ea5e9', id: 'plumber' },
-  { icon: MdCarpenter, name: 'Carpenter', desc: 'Furniture assembly, door/window repair, wardrobes, false ceilings.', color: '#92400e', id: 'carpenter' },
-  { icon: MdFormatPaint, name: 'Painter', desc: 'Interior/exterior painting, waterproofing, texture finish, wood polish.', color: '#ec4899', id: 'painter' },
-  { icon: MdCleaningServices, name: 'Home Cleaning', desc: 'Deep cleaning, sofa/carpet cleaning, kitchen/bathroom scrub, post-renovation clean.', color: '#10b981', id: 'cleaning' },
-  { icon: MdAcUnit, name: 'AC Repair', desc: 'AC installation, gas refilling, servicing, cooling issues diagnosis.', color: '#6366f1', id: 'ac-repair' },
-  { icon: MdBuild, name: 'Appliance Repair', desc: 'Washing machine, refrigerator, microwave, geyser, TV repair.', color: '#8b5cf6', id: 'appliance-repair' },
-  { icon: MdSpa, name: 'Gardening', desc: 'Lawn maintenance, plant care, garden design, tree trimming.', color: '#16a34a', id: 'gardening' },
+const SERVICES = [
+  {
+    icon: <MdElectricBolt />, label: 'Electrician', desc: 'Wiring, repairs, switchboard, fan installation',
+    color: '#f59e0b', bg: '#fef3c7', features: ['Wiring & Repairs', 'Switchboard Fix', 'Fan Installation', 'MCB & ELCB'],
+  },
+  {
+    icon: <MdPlumbing />, label: 'Plumber', desc: 'Leaks, pipe fitting, drainage cleaning',
+    color: '#3b82f6', bg: '#dbeafe', features: ['Leak Repair', 'Pipe Fitting', 'Drainage', 'Geyser Install'],
+  },
+  {
+    icon: <MdBrush />, label: 'Painter', desc: 'Interior, exterior, texture & waterproofing',
+    color: '#ec4899', bg: '#fce7f3', features: ['Interior Paint', 'Exterior Paint', 'Texture Work', 'Waterproofing'],
+  },
+  {
+    icon: <MdCleaningServices />, label: 'Cleaning', desc: 'Home, sofa, bathroom & deep cleaning',
+    color: '#14b8a6', bg: '#ccfbf1', features: ['Home Cleaning', 'Sofa Cleaning', 'Deep Clean', 'Bathroom Cleaning'],
+  },
+  {
+    icon: <MdConstruction />, label: 'Carpenter', desc: 'Furniture, doors, modular kitchen',
+    color: '#d97706', bg: '#fef3c7', features: ['Furniture Repair', 'Door Fitting', 'Modular Kitchen', 'Wood Polish'],
+  },
+  {
+    icon: <MdAcUnit />, label: 'AC Repair', desc: 'Service, gas refill, installation, repair',
+    color: '#2563eb', bg: '#dbeafe', features: ['AC Service', 'Gas Refill', 'Installation', 'Repair'],
+  },
+  {
+    icon: <MdDesignServices />, label: 'Interior Design', desc: 'Home & office interior design, renovation',
+    color: '#7c3aed', bg: '#ede9fe', features: ['2D/3D Design', 'Renovation', 'Flooring', 'False Ceiling'],
+  },
+  {
+    icon: <MdSecurity />, label: 'Security', desc: 'CCTV, locks, alarms, access control',
+    color: '#059669', bg: '#d1fae5', features: ['CCTV Setup', 'Smart Lock', 'Alarm System', 'Access Control'],
+  },
 ]
 
-const ServicesPage = () => {
+const container = { hidden: {}, show: { transition: { staggerChildren: 0.07 } } }
+const item = { hidden: { opacity: 0, y: 24 }, show: { opacity: 1, y: 0, transition: { duration: 0.4 } } }
+
+export default function ServicesPage() {
   const navigate = useNavigate()
+  const theme = useTheme()
+  const isDark = theme.palette.mode === 'dark'
 
   return (
-    <Container maxWidth="lg" sx={{ py: 6 }}>
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-        {/* Header */}
-        <Box sx={{ textAlign: 'center', mb: 6 }}>
-          <Typography
-            variant="overline"
-            sx={{ color: '#6366f1', fontWeight: 700, letterSpacing: 2 }}
-          >
-            What We Offer
-          </Typography>
-          <Typography variant="h3" fontWeight={900} mt={1} mb={2}>
-            Our Services
-          </Typography>
-          <Typography variant="body1" color="text.secondary" maxWidth={560} mx="auto">
-            From electrical repairs to deep cleaning — OneDW connects you with
-            verified professionals for all your home service needs.
-          </Typography>
-        </Box>
+    <Box sx={{ background: isDark ? '#060612' : '#f8fafc', minHeight: '100vh' }}>
 
-        <Grid container spacing={3}>
-          {SERVICES_LIST.map((svc, i) => {
-            const Icon = svc.icon
-            return (
-              <Grid item xs={12} sm={6} md={4} key={svc.id}>
-                <motion.div
-                  initial={{ opacity: 0, y: 30 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.07 }}
-                  whileHover={{ y: -6 }}
-                >
-                  <Paper
-                    sx={{
-                      p: 3.5,
-                      borderRadius: 4,
-                      height: '100%',
-                      border: `1px solid ${svc.color}22`,
-                      boxShadow: `0 4px 24px ${svc.color}15`,
-                      transition: 'all 0.3s ease',
-                      cursor: 'pointer',
-                      '&:hover': {
-                        boxShadow: `0 12px 40px ${svc.color}30`,
-                        borderColor: svc.color,
-                      },
-                    }}
-                    onClick={() => navigate(`/create-request?category=${svc.id}`)}
-                  >
-                    <Box
+      {/* Hero */}
+      <Box sx={{
+        py: { xs: 8, md: 12 }, position: 'relative', overflow: 'hidden',
+        background: 'linear-gradient(135deg, #1e3a5f 0%, #1d4ed8 50%, #14b8a6 100%)',
+      }}>
+        <Box sx={{ position: 'absolute', top: -60, right: -60, width: 280, height: 280, borderRadius: '50%', background: 'rgba(255,255,255,0.04)', pointerEvents: 'none' }} />
+        <Container maxWidth="lg">
+          <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
+            <Box sx={{ textAlign: 'center', color: '#fff' }}>
+              <Typography variant="overline" sx={{ color: 'rgba(255,255,255,0.7)', fontWeight: 700, letterSpacing: '0.1em' }}>50+ Professional Services</Typography>
+              <Typography variant="h2" fontWeight={900} mb={2} sx={{ letterSpacing: '-0.04em', mt: 0.5 }}>
+                Everything Your Home{' '}
+                <Box component="span" sx={{ background: 'linear-gradient(90deg, #93c5fd, #5eead4)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                  Needs
+                </Box>
+              </Typography>
+              <Typography variant="h6" sx={{ color: 'rgba(255,255,255,0.7)', fontWeight: 400, maxWidth: 480, mx: 'auto' }}>
+                Verified professionals for every home service. Transparent pricing. Instant booking. Guaranteed quality.
+              </Typography>
+            </Box>
+          </motion.div>
+        </Container>
+      </Box>
+
+      {/* Service Cards */}
+      <Container maxWidth="lg" sx={{ py: { xs: 6, md: 10 } }}>
+        <motion.div variants={container} initial="hidden" whileInView="show" viewport={{ once: true }}>
+          <Grid container spacing={3}>
+            {SERVICES.map((svc) => (
+              <Grid item xs={12} sm={6} md={6} lg={3} key={svc.label}>
+                <motion.div variants={item} style={{ height: '100%' }}>
+                  <motion.div whileHover={{ y: -6, scale: 1.02 }} whileTap={{ scale: 0.98 }} transition={{ type: 'spring', stiffness: 320, damping: 20 }} style={{ height: '100%' }}>
+                    <Paper
+                      onClick={() => navigate(`/workers?category=${svc.label}`)}
                       sx={{
-                        width: 60,
-                        height: 60,
-                        borderRadius: 3,
-                        background: `linear-gradient(135deg, ${svc.color}, ${svc.color}aa)`,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        mb: 2,
-                        boxShadow: `0 8px 20px ${svc.color}40`,
+                        p: 3.5, borderRadius: 4, cursor: 'pointer', height: '100%',
+                        background: isDark ? 'rgba(255,255,255,0.04)' : '#fff',
+                        border: `1px solid ${isDark ? 'rgba(255,255,255,0.07)' : 'rgba(15,23,42,0.06)'}`,
+                        transition: 'all 0.28s cubic-bezier(0.4,0,0.2,1)',
+                        '&:hover': {
+                          borderColor: svc.color + '50',
+                          boxShadow: `0 16px 48px ${svc.color}20`,
+                          background: isDark ? svc.color + '10' : svc.bg + '66',
+                        },
+                        position: 'relative', overflow: 'hidden',
                       }}
                     >
-                      <Icon color="white" size={28} />
-                    </Box>
-                    <Typography variant="h6" fontWeight={800} mb={1}>
-                      {svc.name}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" mb={2}>
-                      {svc.desc}
-                    </Typography>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      sx={{
-                        borderRadius: 2,
-                        borderColor: svc.color,
-                        color: svc.color,
-                        fontWeight: 700,
-                        '&:hover': { background: `${svc.color}11`, borderColor: svc.color },
-                      }}
-                    >
-                      Book Now →
-                    </Button>
-                  </Paper>
+                      {/* Top gradient bar */}
+                      <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, ${svc.color}, transparent)` }} />
+
+                      {/* Icon */}
+                      <Box sx={{
+                        width: 60, height: 60, borderRadius: 3, mb: 2.5,
+                        background: isDark ? svc.color + '20' : svc.bg,
+                        border: `1px solid ${svc.color}30`,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 28, color: svc.color,
+                      }}>
+                        {svc.icon}
+                      </Box>
+
+                      <Typography variant="h6" fontWeight={800} mb={1}>{svc.label}</Typography>
+                      <Typography variant="body2" color="text.secondary" mb={2.5} sx={{ lineHeight: 1.6 }}>
+                        {svc.desc}
+                      </Typography>
+
+                      {/* Feature tags */}
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
+                        {svc.features.map(f => (
+                          <Chip key={f} label={f} size="small"
+                            sx={{ fontSize: 10, height: 22, fontWeight: 600, bgcolor: isDark ? svc.color + '15' : svc.bg, color: svc.color, border: `1px solid ${svc.color}25` }} />
+                        ))}
+                      </Box>
+                    </Paper>
+                  </motion.div>
                 </motion.div>
               </Grid>
-            )
-          })}
-        </Grid>
-
-        {/* CTA */}
-        <Box sx={{ textAlign: 'center', mt: 8 }}>
-          <Typography variant="h5" fontWeight={800} mb={2}>
-            Don't see your service?
-          </Typography>
-          <Typography color="text.secondary" mb={3}>
-            Contact us and we'll connect you with the right professional.
-          </Typography>
-          <Button
-            variant="contained"
-            size="large"
-            onClick={() => navigate('/create-request')}
-            sx={{
-              borderRadius: 2,
-              py: 1.5,
-              px: 5,
-              fontWeight: 800,
-              background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-              '&:hover': { background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' },
-            }}
-          >
-            Request Custom Service
-          </Button>
-        </Box>
-      </motion.div>
-    </Container>
+            ))}
+          </Grid>
+        </motion.div>
+      </Container>
+    </Box>
   )
 }
-
-export default ServicesPage

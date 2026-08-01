@@ -206,6 +206,14 @@ async def update_booking_status(
             {"user_id": booking["worker_id"]},
             {"$inc": {"total_jobs": 1}},
         )
+        # Award loyalty points to customer based on booking amount
+        try:
+            from app.services.loyalty_service import award_booking_points
+            amount = float(booking.get("amount", 0) or 0)
+            if amount > 0:
+                await award_booking_points(db, booking["customer_id"], booking_id, amount)
+        except Exception:
+            pass
 
     updated = await db.bookings.find_one({"_id": _to_oid(booking_id)})
 
@@ -215,9 +223,9 @@ async def update_booking_status(
         if notif_info:
             target, title, body = notif_info
             if target in ("customer", "both"):
-                await create_notification(db, booking["customer_id"], title, body, "info", booking_id)
+                await create_notification(db, booking["customer_id"], title, body, "booking", booking_id)
             if target in ("worker", "both"):
-                await create_notification(db, booking["worker_id"], title, body, "info", booking_id)
+                await create_notification(db, booking["worker_id"], title, body, "booking", booking_id)
     except Exception:
         pass
 

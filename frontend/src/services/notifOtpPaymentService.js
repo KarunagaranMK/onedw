@@ -6,14 +6,20 @@ import api from './api'
 
 // ─── Notifications ────────────────────────────────────────────────────────────
 
-export const getNotifications = async () => {
-  const { data } = await api.get('/notifications')
+export const getNotifications = async (category = null) => {
+  const params = category && category !== 'all' ? { category } : {}
+  const { data } = await api.get('/notifications', { params })
   return data
 }
 
 export const getUnreadCount = async () => {
   const { data } = await api.get('/notifications/unread-count')
   return data.unread_count || 0
+}
+
+export const getNotificationStats = async () => {
+  const { data } = await api.get('/notifications/stats')
+  return data
 }
 
 export const markAllRead = async () => {
@@ -23,6 +29,16 @@ export const markAllRead = async () => {
 
 export const markNotificationRead = async (id) => {
   const { data } = await api.put(`/notifications/${id}/read`)
+  return data
+}
+
+export const deleteNotification = async (id) => {
+  const { data } = await api.delete(`/notifications/${id}`)
+  return data
+}
+
+export const deleteAllNotifications = async () => {
+  const { data } = await api.delete('/notifications/all')
   return data
 }
 
