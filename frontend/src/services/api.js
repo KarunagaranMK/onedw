@@ -1,10 +1,11 @@
 import axios from "axios";
 
-// Use relative "/api" so all requests go through the Vite proxy
-// Vite forwards: /api/* → http://127.0.0.1:8000/api/*
-// This avoids CORS issues and works correctly on any port (5173, 5174, etc.)
+// In local dev: VITE_API_BASE_URL=/api → requests go through Vite proxy
+// In production: VITE_API_BASE_URL=https://onedw-backend.onrender.com/api
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
+
 const api = axios.create({
-  baseURL: "/api",
+  baseURL: BASE_URL,
   headers: {
     "Content-Type": "application/json",
   },
