@@ -32,7 +32,7 @@ export default function LoginPage() {
     setError(null)
     setLoading(true)
     try {
-      const user = await login(email, password)
+      const user = await login({ email, password })
       if (user?.role === 'worker') navigate('/worker-dashboard')
       else if (user?.role === 'admin') navigate('/admin')
       else navigate('/customer-dashboard')
